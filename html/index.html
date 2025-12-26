@@ -135,6 +135,20 @@
                     </div>
                 
                     <div class="tree-item " >
+                        <a href="chapter13.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 13 — 附录：终极参考手册 (The Ultimate Reference)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter14.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 14 — Search API + RAG：构建检索增强的 RAG Agent</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
                         <a href="CLAUDE.html" class="tree-link">
                             <span class="tree-icon">📄</span>
                             <span class="tree-title">Untitled</span>
@@ -367,11 +381,65 @@
 12.5 工程路线图：从 toy 到 production（多租户/合规/成本）<br />
 12.6 推荐资料与关键词表（便于自行检索）</p>
 <hr />
-<h2 id="chapter13md">附录（chapter13.md）</h2>
+<h3 id="chapter13md">附录（chapter13.md）</h3>
 <p>A.1 术语表：Monad、Kleisli、Interpreter、Effect、FRP…<br />
 A.2 类型签名速查表：timeout/retry/race/withSpan…<br />
 A.3 常见坑：把日志写进业务输出、把异常当控制流、不可回放随机性<br />
 A.4 练习题与参考答案索引（按章节编号）</p>
+<h3 id="chapter-14-search-api-rag-rag-agentchapter14md">Chapter 14 — Search API + RAG：构建检索增强的 RAG Agent（chapter14.md）</h3>
+<p>14.1 Search/RAG agent 的定位：从“工具调用”到“知识获取回路”<br />
+14.2 典型架构：Query → Search → Rank → Read → Synthesize → Cite<br />
+14.3 把 Search 当 effect：<code>Search : SearchReq -&gt; m SearchResp</code><br />
+14.4 RAG 的 IO 事件：  </p>
+<ul>
+<li>查询超时/部分结果  </li>
+<li>结果重复/污染（SEO spam、模板站）  </li>
+<li>
+<p>引用缺失与“无法证明”<br />
+14.5 Query 生成策略：single-shot vs multi-hop；Kleisli 串联<br />
+14.6 结果去重与聚类：同源/近重复、canonical URL、内容哈希<br />
+14.7 Ranking 与 rerank：  </p>
+</li>
+<li>
+<p>规则（BM25/域名白名单）  </p>
+</li>
+<li>模型 rerank（cross-encoder / LLM judge）  </li>
+<li>
+<p>“可解释评分”作为日志事件<br />
+14.8 Reading 策略：  </p>
+</li>
+<li>
+<p>chunking 与窗口  </p>
+</li>
+<li>证据抽取（claim-evidence）  </li>
+<li>
+<p>反证搜索（disconfirming evidence）<br />
+14.9 可信与安全：  </p>
+</li>
+<li>
+<p>引用约束（每条关键断言都要可追溯证据）  </p>
+</li>
+<li>可信优先（站点质量、作者、时效）  </li>
+<li>
+<p>防提示注入（网页内容作为不可信输入）<br />
+14.10 “检索回路”的 loop detection：  </p>
+</li>
+<li>
+<p>搜索词震荡（query drift）  </p>
+</li>
+<li>永远找不到证据时的终止条件  </li>
+<li>
+<p>budget 驱动的“停止检索，转为不确定回答”<br />
+14.11 A/B 与评估：  </p>
+</li>
+<li>
+<p>retrieval 指标（recall@k、nDCG）  </p>
+</li>
+<li>端到端指标（answer accuracy、citation precision）  </li>
+<li>离线回放：固定搜索结果集 vs 在线实时搜索<br />
+14.12 与 FRP：流式展示搜索过程（query/结果/证据/引用）<br />
+14.13 章节练习：写一个“带引用约束”的 RAG agent 最小实现</li>
+</ul>
             </article>
             
             <nav class="page-nav"><a href="chapter1.html" class="nav-link next">Chapter 1 — LLM Agent 的“抽象边界”：为什么从 IO Monad 出发 →</a></nav>
