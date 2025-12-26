@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>Chapter 5 — Runtime 与调度：从解释器到并发、取消与资源管理 (chapter5.md)</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <nav class="tree-nav" role="tree">
+                    <div class="tree-item " >
+                        <a href="index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">《用 IO Monad 搭建 LLM Agent：从 Kleisli 到事件建模与 FRP》目录（index.md）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter1.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 1 — LLM Agent 的“抽象边界”：为什么从 IO Monad 出发</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter2.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 2 — IO Monad 速成：从概念到工程实现</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter3.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 3 — Kleisli Arrow：把“带 IO 的函数”当作可组合箭头</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter4.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 4 — Agent DSL：把工具、记忆与控制流做成“可解释的 effect”</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item active" >
+                        <a href="chapter5.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 5 — Runtime 与调度：从解释器到并发、取消与资源管理 (chapter5.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter6.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 6 — 事件建模：IO timeout、重试、退避、熔断与预算</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter7.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 7 — Coding Agent 的 Loop Detection：让 Agent 可终止、可解释</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter8.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 8 — A/B Test 与评估：把实验嵌进 IO/Kleisli 管道</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter9.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 9 — 可观测性：Trace/Span、日志、指标与可复现</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter10.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 10 — 与 FRP 的关系：当 Agent 变成“事件流处理器” (chapter10.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter11.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 11 — 综合案例：实现一个可插拔的 Coding Agent (chapter11.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter12.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 12 — 扩展阅读与路线图：通往类型安全与生产环境的彼岸</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="CLAUDE.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Untitled</span>
+                        </a>
+                    </div>
+                </nav>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <h1 id="chapter-5-runtime-chapter5md">Chapter 5 — Runtime 与调度：从解释器到并发、取消与资源管理 (chapter5.md)</h1>
+<h2 id="1">1. 开篇段落</h2>
+<p>在上一章中，我们定义了 Agent 的灵魂（DSL）：它<strong>想</strong>做什么。本章我们将构建 Agent 的躯体（Runtime）：它<strong>如何</strong>在物理世界中行动。</p>
+<p>对于大多数 LLM 应用开发者来说，"Runtime" 往往是隐形的——它就是 Python 解释器或者 Node.js 的 Event Loop。但在构建<strong>高可靠、长时间运行的 Autonomous Agent</strong> 时，这种默认的运行时是远远不够的。你是否遇到过以下情况？</p>
+<ul>
+<li>用户点击了“停止生成”，但后台的 Tool 还在疯狂调用 API 扣费。</li>
+<li>Agent 在写入文件时报错崩溃留下了一个写了一半的损坏文件（Corrupted File）。</li>
+<li>同时处理 5 个网页总结任务，结果因为串行执行让用户等了 3 分钟。</li>
+<li>Agent 进入死循环，无法从外部强制杀掉，只能重启服务。</li>
+</ul>
+<p>IO Monad 架构的核心优势在于它强制我们显式地设计 Runtime。Runtime 不仅仅是“执行代码的地方”，它是一个<strong>调度器（Scheduler）</strong>、一个<strong>资源管理器（Resource Manager）和一个安全沙箱（Sandbox）</strong>。本章将带你深入 Agent 的“引擎室”，学习如何将纯粹的代数指令转化为安全、高效、可控的物理副作用。</p>
+<p><strong>学习目标：</strong></p>
+<ul>
+<li><strong>深度理解解释器模式</strong>：如何通过“堆叠解释器”实现层级化的功能（如在执行前自动加 Log、自动鉴权）。</li>
+<li><strong>掌握结构化并发 (Structured Concurrency)</strong>：理解 Fiber（纤程）树模型，以及它是如何实现“父任务取消，子任务自动清理”的。</li>
+<li><strong>精通资源安全 (Resource Safety)</strong>：深入 <code>bracket</code> 模式的原理，解决异步环境下的资源泄漏问题。</li>
+<li><strong>Runtime 隔离与防护</strong>：如何在运行时层面实施速率限制（Rate Limiting）和沙箱隔离。</li>
+</ul>
+<hr />
+<h2 id="2">2. 文字论述</h2>
+<h3 id="21">2.1 解释器架构：洋葱模型</h3>
+<p>在 Chapter 4 中，我们通过 Free Monad 或 Tagless Final 定义了 <code>Program</code>。Runtime 的首要职责就是提供一个解释器（Interpreter）来运行它。</p>
+<p>但生产级的 Runtime 很少只有一个单一的解释器。相反，我们通常使用<strong>“洋葱模型”</strong>或<strong>“解释器堆叠”</strong>。</p>
+<div class="codehilite"><pre><span></span><code>User Request -&gt; [ Trace Interpreter ]  &lt;-- 负责生成 Span ID, 记录开始/结束时间
+                      |
+                [ Auth/Policy Interpreter ] &lt;-- 负责检查工具调用权限, 预算扣除
+                      |
+                [ Retry/CircuitBreaker Interpreter ] &lt;-- 负责遇到网络错误自动重试
+                      |
+                [ Real Implementation Interpreter ] &lt;-- 真正发起 HTTP 请求, 读写 DB
+</code></pre></div>
+
+<p>这种设计的巨大优势在于<strong>关注点分离</strong>。写业务逻辑（Prompt Engineering）的人不需要关心重试策略，也不需要关心分布式追踪（Tracing）；这些都由 Runtime 的外层解释器自动注入。</p>
+<p><strong>代码直觉 (伪代码):</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- 组合解释器</span>
+<span class="nf">runAgent</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">Program</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">IO</span><span class="w"> </span><span class="n">a</span>
+<span class="nf">runAgent</span><span class="w"> </span><span class="n">program</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span>
+<span class="w">    </span><span class="n">program</span><span class="w"> </span>
+<span class="w">      </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">interpretRectry</span><span class="w"> </span><span class="kt">Policy</span><span class="o">.</span><span class="kr">default</span><span class="w">  </span><span class="c1">-- 注入重试能力</span>
+<span class="w">      </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">interpretRateLimit</span><span class="w"> </span><span class="p">(</span><span class="kt">PerMinute</span><span class="w"> </span><span class="mi">10</span><span class="p">)</span><span class="w"> </span><span class="c1">-- 注入限流能力</span>
+<span class="w">      </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">interpretLog</span><span class="w"> </span><span class="s">&quot;agent-run-1&quot;</span><span class="w">      </span><span class="c1">-- 注入日志能力</span>
+<span class="w">      </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">interpretRealWorld</span><span class="w">              </span><span class="c1">-- 真正执行</span>
+</code></pre></div>
+
+<h3 id="22">2.2 结构化并发：驾驭并行的野兽</h3>
+<p>LLM Agent 是天生的 IO 密集型应用。模型推理慢、搜索慢、数据库慢。为了性能，并发是必须的。</p>
+<h4 id="221-thread">2.2.1 为什么不用 Thread？</h4>
+<p>操作系统线程（OS Thread）太重了（MB 级栈空间，上下文切换开销大）。IO Monad Runtime 通常构建在 <strong>Fiber（纤程 / Green Thread）</strong> 之上。Fiber 是用户态的轻级线程（KB 级），由 Runtime 自己调度。这允许一个 Agent 进程轻松启动成千上万个并发任务。</p>
+<h4 id="222-structured-concurrency">2.2.2 结构化并发 (Structured Concurrency)</h4>
+<p>这是 Runtime 调度的核心原则：<strong>并发任务的生命周期必须受限于其父任务的作用域。</strong></p>
+<p>想象一棵树：</p>
+<ul>
+<li><strong>Root</strong>: Agent 主流程</li>
+<li><strong>Child 1</strong>: 思考 (LLM 推理)</li>
+<li><strong>Child 2</strong>: 并行工具调用</li>
+<li><strong>Grandchild A</strong>: 搜索 Google</li>
+<li><strong>Grandchild B</strong>: 爬取网页</li>
+</ul>
+<p><strong>规则</strong>：如果 Child 2 失败或被取消，Grandchild A 和 B <strong>必须</strong>被强制终止。绝不允许出现“孤儿任务”（Orphan Tasks）在后台默默运行。</p>
+<p>在 IO Monad 中，我们使用 <code>parTraverse</code>（并行遍历）和 <code>race</code>（竞态）等原语来隐式地构建这棵树，而不是手动 spawn 线程。</p>
+<div class="codehilite"><pre><span></span><code>[ parTraverse 语义 ]
+Input: [Task A, Task B, Task C]
+Behavior:
+
+1. Fork 3 Fibers for A, B, C.
+2. Join all of them.
+3. If ANY fails -&gt; Cancel others immediately -&gt; Return Error.
+4. If ALL succeed -&gt; Return [Result A, Result B, Result C].
+</code></pre></div>
+
+<h3 id="23-cancellation">2.3 取消（Cancellation）：不仅仅是停止</h3>
+<p>“取消”是分布式系统中最难实现的功能之一。在 Agent 语境下，取消通常由两个来源触发：</p>
+<ol>
+<li><strong>用户干预</strong>：用户点击 "Stop Generation"。</li>
+<li><strong>超时 (Timeout)</strong>：<code>race(Task, sleep(5s))</code>，5秒到了，Task 必须死。</li>
+</ol>
+<h4 id="_1">取消的传播机制</h4>
+<p>Runtime 维护着 Fiber 树。当取消信号到达某个 Fiber 时：</p>
+<ol>
+<li><strong>状态变更</strong>：该 Fiber 状态标记为 <code>Canceling</code>。</li>
+<li><strong>向下传播</strong>：Runtime 遍历该 Fiber 的所有活跃子 Fiber，递归发送取消信号。</li>
+<li><strong>屏蔽区 (Masking)</strong>：如果某个子 Fiber 正在执行关键的清理操作（如 <code>closeFile</code>），取消信号会被<strong>暂时屏蔽</strong>，直到清理完成。这叫 <code>uncancellable</code> 区域。</li>
+<li><strong>物理中断</strong>：如果是阻塞 IO（如 <code>socket.read</code>），Runtime 会尝试关闭文件描述符或注入异常来唤醒线程。</li>
+</ol>
+<p><strong>Gotcha</strong>: 很多简单的 Python 脚本用 <code>KeyboardInterrupt</code> 处理取消，但这只能中断主线程。IO Monad Runtime 能确保取消信号准确传递到深层嵌套的每一个异步任务中。</p>
+<h3 id="24-bracket">2.4 资源安全：Bracket 模式详解</h3>
+<p>这是本章最重要的工程概念。
+在异步并发且可取消的环境中，<code>try-catch-finally</code> 是<strong>不安全</strong>的。</p>
+<p><strong>经典漏洞：</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 伪代码：不安全的资源管理</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">open_file</span><span class="p">(</span><span class="s2">&quot;data.txt&quot;</span><span class="p">)</span>  <span class="c1"># 1. 分配</span>
+<span class="c1"># &lt;--- 如果在这里被取消了怎么办？ f 已经打开，但 try 还没进，finally 永远不会跑</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="k">await</span> <span class="n">do_stuff</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>      <span class="c1"># 2. 使用</span>
+<span class="k">finally</span><span class="p">:</span>
+    <span class="n">close_file</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>          <span class="c1"># 3. 释放</span>
+</code></pre></div>
+
+<p>IO Monad 引入了 <strong><code>bracket</code></strong> (也叫 <code>acquireRelease</code>) 原语，它将这三步原子化绑定：</p>
+<p>Runtime 保证：</p>
+<ol>
+<li><strong>Acquire 不可取消</strong>：一旦开始申请资源，就必须等到申请完（得到句柄）。</li>
+<li><strong>Release 必执行</strong>：只要 Acquire 成功了，无论 Use 是正常结束、抛出异常、还是被<strong>取消</strong>，Release 都会运行。</li>
+<li><strong>Use 可取消</strong>：在 Use 执行期间收到取消信号，Runtime 会打断 Use，跳转到 Release。</li>
+</ol>
+<p><strong>应用场景</strong>：</p>
+<ul>
+<li><strong>数据库事务</strong>：Acquire=开启事务, Release=回滚/提交, Use=执行SQL。</li>
+<li><strong>分布式锁</strong>：Acquire=抢锁, Release=释放锁, Use=执行任务。</li>
+<li><strong>临时文件</strong>：Acquire=创建文件, Release=删除文件, Use=写入数据。</li>
+</ul>
+<h3 id="25">2.5 运行时防护：沙箱与限流</h3>
+<p>Runtime 是 Agent 与世界的边界，它也是实施安全策略的最佳位置。</p>
+<h4 id="251-sandbox">2.5.1 工具沙箱 (Sandbox)</h4>
+<p>解释器层可以拦截所有具有副作用的工具调用。</p>
+<ul>
+<li><strong>代码执行</strong>：拦截 <code>RunCode</code> Effect。Runtime 启动一个临时的 Docker 容器或 Firecracker MicroVM，将代码通过 Socket 发送进去执行，只取回 stdout/stderr。宿主机完全隔离。</li>
+<li><strong>网络访问</strong>：拦截 <code>HttpRequest</code> Effect。Runtime 检查 URL 是否在白名单（Allowlist）内，防止 SSRF 攻击（例如 Agent 试图访问 <code>http://localhost:8080/admin</code>）。</li>
+</ul>
+<h4 id="252-rate-limiting">2.5.2 速率限制 (Rate Limiting)</h4>
+<p>不要让 Agent 代码自己 <code>sleep</code>。Runtime 应该持有<strong>令牌桶 (Token Bucket)</strong> 状态。
+当解释器遇到 <code>LLMRequest</code> 时，先去令牌桶拿令牌。如果拿不到，Runtime 自动挂起该 Fiber（排队），而不是报错。这样可以平滑地处理 API 限流，极大提升稳定性。</p>
+<hr />
+<h2 id="3">3. 本章小结</h2>
+<p>Runtime 是让 DSL 梦想成真的机器。一个优秀的 IO Monad Runtime 提供了传统脚本无法比拟的鲁棒性。</p>
+<ul>
+<li><strong>关注点分离</strong>：通过解释器堆叠，将日志、鉴权、重试逻辑从业务代码中剥离。</li>
+<li><strong>性能</strong>：利用 <code>parTraverse</code> 和 Fiber 实现高并发 I/O，无需手动管理线程。</li>
+<li><strong>安全性</strong>：<code>bracket</code> 模式消除了“取消”场景下的资源泄漏风险。</li>
+<li><strong>控制力</strong>：结构化并发确保了没有任何一个任务可以逃脱 Runtime 的生命周期管理（没有僵尸任务）。</li>
+</ul>
+<hr />
+<h2 id="4">4. 练习题</h2>
+<h3 id="_2">基础题</h3>
+<p><strong>练习 5.1：设计解释器层级</strong>
+设计一个 Agent Runtime，需要包含下功能：1. 计时（统计耗时），2. 错误重试（最多3次），3. 鉴权（检查 API Key），4. 真实执行。请给出这些解释器的<strong>组合顺序</strong>，并解释为什么顺序很重要。</p>
+<details>
+<summary>参考答案</summary>
+<p><strong>推荐顺序（从外到内）：</strong></p>
+<ol>
+<li><strong>鉴权 (Auth)</strong>：最外层。如果没权限，直接拒绝，不要浪费后续的重试或计时资源。</li>
+<li><strong>重试 (Retry)</strong>：第二层。重试是针对“单次执行失败”的策略。</li>
+<li>
+<p><strong>计时 (Metrics/Timing)</strong>：第三层。通常我们要统计的是“包含重试在内的总耗时”还是“单次 HTTP 请求耗时”？
+* 如果是“总耗时”（用户感知的延迟），放 Retry 外面。
+* 如果是“单次请求延迟”（监控网络质量），放 Retry 里面。通常建议放 Retry 里面或两处都放。</p>
+</li>
+<li>
+<p><strong>真实执行 (Real Execution)</strong>：最内层。</p>
+</li>
+</ol>
+<p><strong>关键点</strong>：如果 Retry 在 Auth 外，鉴权失败会导致疯狂重试，这是错误的。</p>
+</details>
+<p><strong>练习 5.2：并发的 List 处理</strong>
+Agent 需要分析 10 份 PDF 文档。
+方案 A：<code>pdfs.map(analyze).sequence</code> (相当于 <code>Promise.all</code>)
+方案 B：<code>pdfs.map(analyze).sequence</code> (但在 Runtime 配置里限制并发度 concurrency=3)
+请分析方案 A 在处理 1000 份文档时可能引发的 Runtime 问题。</p>
+<details>
+<summary>参考答案</summary>
+<p>方案 A 会瞬间启动 1000 个 Fiber，发起 1000 个并发 HTTP 请求或打开 1000 个文件句柄。
+<strong>后果：</strong></p>
+<ol>
+<li><strong>文件描述符耗尽 (EMFILE)</strong>：操作系统限制单一进程打开的文件数。</li>
+<li><strong>内存溢出 (OOM)</strong>：1000 个 PDF 同时加载进内存。</li>
+<li><strong>API 限流 (429)</strong>：瞬间击穿 LLM 服务商的 Rate Limit。
+<strong>Runtime 解决方案：</strong> 使用 <code>parTraverseN(limit=3)</code> 或类似信号量机制，控制同时运行的 Fiber 数量。</li>
+</ol>
+</details>
+<h3 id="_3">挑战题</h3>
+<p><strong>练习 5.3：实现“优雅的超时与回滚”</strong>
+场景：Agent 正在执行一个复杂的“写代码 -&gt; 跑测试 -&gt; 提交代码”流程。要求整个流程最长只能运行 30 秒。如果 30 秒到了：</p>
+<ol>
+<li>立即停止当前的 LLM 生成或测试运行。</li>
+<li><strong>但是</strong>，如果代码已经 commit 到了本地 git，必须执行 <code>git reset --hard HEAD^</code> 来回滚，保持环境干净。
+请用 <code>race</code>, <code>bracket</code> (或 <code>onCancel</code>) 描述这个逻辑。</li>
+</ol>
+<details>
+<summary>参考答案</summary>
+<p>这是一个经典的 <code>bracket</code> + <code>timeout</code> 组合场景。</p>
+<pre>
+action = bracket(
+acquire = pure(CURRENT_GIT_HASH), -- 记录当前状态
+release = \start_hash -&gt;
+-- Release 逻辑：检查当前 hash 是否变了，如果变了且是异常/取消状态，回滚
+if (current_hash != start_hash) git reset --hard start_hash
+else pure (),
+use = _ -&gt;
+step1_write_code()
+step2_run_test()
+step3_git_commit()
+)
+
+-- 加上超时控制
+timeout(30.seconds, action)
+</pre>
+<p><strong>解析</strong>：
+<code>timeout</code> 本质上是一个 <code>race</code>。如果超时发生，<code>use</code> 块内的逻辑（写代码、跑测试）会被收到取消信号而中断。Runtime 保证跳转到 <code>release</code> 块。在 <code>release</code> 块中，我们执行清理逻辑（回滚 Git）。注意：如果 <code>step3</code> 刚执行完正好超时，Release 依然会运行，这取决于你对“成功但超时”的定义，通常 Release 需要检查 ExitCase (Success/Error/Canceled) 来决定是否回滚。</p>
+</details>
+<p><strong>练习 5.4：可中断的 Human-in-the-loop</strong>
+设计一个 Runtime 原语 <code>askHumanOrTimeout(question, timeout)</code>。
+逻辑：发送问题给用户 -&gt; 等待用户回答。
+同时：如果用户 1 分钟不理，或者用户点了“取消”，或者 Agent 的整体任务被取消，这个等待必须立即结束。
+这就要求 Runtime 能整合：Websocket 事件流（用户输入）、定时器（超时）、父 Fiber 信号（取消）。请描述如何建模。</p>
+<details>
+<summary>参考答案</summary>
+<p>这需要将 <code>IO</code> 与 <code>FRP</code> (Event Stream) 结合，或者使低级的 <code>Async/Callback</code> 桥接。</p>
+<p>类型签名：<code>askHuman : Question -&gt; IO Answer</code></p>
+<p>内部实现：
+使用 <code>Async.async { callback -&gt; ... }</code> 创建一个异步边界。</p>
+<ol>
+<li>注册 Websocket 监听器：收到消息 -&gt; 调用 <code>callback(Right(answer))</code>。</li>
+<li>启动定时器：时间到 -&gt; 调用 <code>callback(Left(Timeout))</code>。</li>
+<li>注册取消回调（onCancel）：如果 Fiber 被取消 -&gt; 移除 Websocket 监听器，停止定时器。</li>
+</ol>
+<p>这展示了 Runtime 如何将外部世界（用户行为）桥接到内部的 IO Monad 系统中。</p>
+</details>
+<hr />
+<h2 id="5-gotchas">5. 常见陷阱与错误 (Gotchas)</h2>
+<h3 id="51-swallowed-exceptions">5.1 吞没异常 (Swallowed Exceptions)</h3>
+<p><strong>现象</strong>：使用 <code>fork</code> 或 <code>async</code> 启动后台任务，但没有调用 <code>join</code> 或 <code>await</code>。任务失败了，日志里什么都没有，Agent 看起来“卡死”了或者行为怪异。
+<strong>原因</strong>：在结构化并发中，父任务应该负责处理子任务的错误。如果“发后即忘 (Fire and Forget)”，异常无处抛出。
+<strong>调试技巧</strong>：配置 Runtime 的 <code>UncaughtExceptionHandler</code>。更好的做法是<strong>禁止</strong> Fire and Forget，总是使用 <code>Supervisor</code> 或 <code>map</code> 将后台任务的结果/错误汇聚到主流程。</p>
+<h3 id="52-thread-starvation">5.2 阻塞主线程 (Thread Starvation)</h3>
+<p><strong>现象</strong>：Agent 变得反应迟钝，心跳包超时。
+<strong>原因</strong>：在异步 Runtime 中直接调用了阻塞操作，如 <code>requests.get</code> (同步版) 或 <code>shutil.rmtree</code> (大文件夹删除)，甚至是一个巨大的 <code>for</code> 循环计算。这会卡住处理 Event Loop 的那个单线程。
+<strong>Rule of Thumb</strong>：</p>
+<ul>
+<li>任何网络/磁盘 IO：必须用异步 API。</li>
+<li>任何 CPU 密集计算：必须 wrap 在 <code>shift</code> / <code>yield</code> 中，或扔进专门的 ThreadPool。</li>
+</ul>
+<h3 id="53-bracket">5.3 错误的 Bracket 嵌套</h3>
+<p><strong>现象</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="nf">res1</span><span class="w"> </span><span class="ow">&lt;-</span><span class="w"> </span><span class="n">openFile</span><span class="w"> </span><span class="s">&quot;a&quot;</span>
+<span class="nf">res2</span><span class="w"> </span><span class="ow">&lt;-</span><span class="w"> </span><span class="n">openFile</span><span class="w"> </span><span class="s">&quot;b&quot;</span>
+<span class="c1">-- do something</span>
+<span class="nf">close</span><span class="w"> </span><span class="n">res2</span>
+<span class="nf">close</span><span class="w"> </span><span class="n">res1</span>
+</code></pre></div>
+
+<p><strong>问题</strong>：如果在 open "b" 的时候报错了，res1 永远不会被释放。
+<strong>修正</strong>：必须嵌套 <code>bracket</code>：</p>
+<div class="codehilite"><pre><span></span><code><span class="nf">bracket</span><span class="w"> </span><span class="p">(</span><span class="n">open</span><span class="w"> </span><span class="s">&quot;a&quot;</span><span class="p">)</span><span class="w"> </span><span class="n">close</span><span class="w"> </span><span class="o">$</span><span class="w"> </span><span class="nf">\</span><span class="n">res1</span><span class="w"> </span><span class="ow">-&gt;</span>
+<span class="w">  </span><span class="n">bracket</span><span class="w"> </span><span class="p">(</span><span class="n">open</span><span class="w"> </span><span class="s">&quot;b&quot;</span><span class="p">)</span><span class="w"> </span><span class="n">close</span><span class="w"> </span><span class="o">$</span><span class="w"> </span><span class="nf">\</span><span class="n">res2</span><span class="w"> </span><span class="ow">-&gt;</span>
+<span class="w">    </span><span class="c1">-- do something</span>
+</code></pre></div>
+
+<p>或者使用 <code>Resource</code> Monad (Scala/Haskell) 来自动处理这种线性组合。</p>
+<hr />
+<h2 id="6-language-mapping">6. 语言映射 (Language Mapping)</h2>
+<p>| 概念 | Haskell (polysemy / mtl) | Scala (Cats Effect / ZIO) | TypeScript (Effect-TS) | Python (Asyncio 裸写) |</p>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>Haskell (polysemy / mtl)</th>
+<th>Scala (Cats Effect / ZIO)</th>
+<th>TypeScript (Effect-TS)</th>
+<th>Python (Asyncio 裸写)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Interpreter</strong></td>
+<td><code>Semr</code> / <code>Interpreters</code></td>
+<td><code>Interpreter</code> / <code>Layer</code></td>
+<td><code>Effect.provide</code></td>
+<td>无内置，需手动依赖注入</td>
+</tr>
+<tr>
+<td><strong>Fiber/Task</strong></td>
+<td><code>ThreadId</code> (Green)</td>
+<td><code>Fiber</code></td>
+<td><code>Fiber</code></td>
+<td><code>asyncio.Task</code></td>
+</tr>
+<tr>
+<td><strong>Parallel List</strong></td>
+<td><code>traverse</code> (Applicative)</td>
+<td><code>parTraverse</code> / <code>ZIO.foreachPar</code></td>
+<td><code>Effect.all(..., {concurrency: n})</code></td>
+<td><code>asyncio.gather</code></td>
+</tr>
+<tr>
+<td><strong>Cancellation</strong></td>
+<td><code>throwTo</code> (Async Exception)</td>
+<td><code>Fiber.cancel</code> (Interruption)</td>
+<td><code>Fiber.interrupt</code></td>
+<td><code>task.cancel()</code> (Cooperative)</td>
+</tr>
+<tr>
+<td><strong>Resource Safety</strong></td>
+<td><code>bracket</code> / <code>Resource</code></td>
+<td><code>Resource</code> / <code>ZIO.acquireRelease</code></td>
+<td><code>Effect.acquireRelease</code></td>
+<td><code>try...finally</code> (弱保证)</td>
+</tr>
+<tr>
+<td><strong>Scope</strong></td>
+<td><code>runResourceT</code></td>
+<td><code>Scope</code></td>
+<td><code>Scope</code></td>
+<td><code>async with</code> / <code>TaskGroup</code></td>
+</tr>
+</tbody>
+</table>
+            </article>
+            
+            <nav class="page-nav"><a href="chapter4.html" class="nav-link prev">← Chapter 4 — Agent DSL：把工具、记忆与控制流做成“可解释的 effect”</a><a href="chapter6.html" class="nav-link next">Chapter 6 — 事件建模：IO timeout、重试、退避、熔断与预算 →</a></nav>
+        </main>
+    </div>
+</body>
+</html>

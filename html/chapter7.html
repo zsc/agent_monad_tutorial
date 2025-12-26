@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>Chapter 7 — Coding Agent 的 Loop Detection：让 Agent 可终止、可解释</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <nav class="tree-nav" role="tree">
+                    <div class="tree-item " >
+                        <a href="index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">《用 IO Monad 搭建 LLM Agent：从 Kleisli 到事件建模与 FRP》目录（index.md）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter1.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 1 — LLM Agent 的“抽象边界”：为什么从 IO Monad 出发</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter2.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 2 — IO Monad 速成：从概念到工程实现</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter3.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 3 — Kleisli Arrow：把“带 IO 的函数”当作可组合箭头</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter4.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 4 — Agent DSL：把工具、记忆与控制流做成“可解释的 effect”</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter5.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 5 — Runtime 与调度：从解释器到并发、取消与资源管理 (chapter5.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter6.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 6 — 事件建模：IO timeout、重试、退避、熔断与预算</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item active" >
+                        <a href="chapter7.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 7 — Coding Agent 的 Loop Detection：让 Agent 可终止、可解释</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter8.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 8 — A/B Test 与评估：把实验嵌进 IO/Kleisli 管道</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter9.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 9 — 可观测性：Trace/Span、日志、指标与可复现</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter10.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 10 — 与 FRP 的关系：当 Agent 变成“事件流处理器” (chapter10.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter11.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 11 — 综合案例：实现一个可插拔的 Coding Agent (chapter11.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter12.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 12 — 扩展阅读与路线图：通往类型安全与生产环境的彼岸</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="CLAUDE.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Untitled</span>
+                        </a>
+                    </div>
+                </nav>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <h1 id="chapter-7-coding-agent-loop-detection-agent">Chapter 7 — Coding Agent 的 Loop Detection：让 Agent 可终止、可解释</h1>
+<h2 id="71">7.1 开篇：西西弗斯的编程助手</h2>
+<p>在构建 Coding Agent 时，最令人沮丧的时刻莫过于此：你满怀期待地看着 Agent 开始修复 Bug，它修改了代码，运行测试，失败了；它再次修改代码（甚至和上次一模一样），再次运行测试，错误依旧……十分钟后，你发现它在反复修改同一个文件的同一行，消耗了 $10 的 API 额度，而代码库的状态没有任何实质进展。</p>
+<p>这种“死循环”在图灵完备的编程任务中是不可避免的（停机问题）。但在工程实践中，我们不能放任不管。</p>
+<p>传统的做法是在代码里到处插 <code>if (count &gt; 5) break</code>。但在本书推崇的 <strong>IO Monad / Kleisli</strong> 架构中，我们将采取一种更优雅、更系统的方法：<strong>将 Loop Detection 视为一个 Effectful 的中间件</strong>。</p>
+<p><strong>本章学习目标</strong>：</p>
+<ol>
+<li>理解 Coding Agent 陷入循环的三种典型模式（句法、语义、状态）。</li>
+<li>掌握如何用 Kleisli Arrow 将检测逻辑“切面化”，插入到 Agent 的思考-行动循环中。</li>
+<li>学会构建多维度的特征检测器（N-gram, AST Diff, Error Fingerprint）。</li>
+<li>设计分级的“熔断与逃生”策略，实现优雅降级。</li>
+</ol>
+<hr />
+<h2 id="72-effect">7.2 核心概念：作为 Effect 的“守门人”</h2>
+<p>在 IO Monad 的世界里，Agent 的每一步都可以抽象为一个 Kleisli Arrow：</p>
+<p>Loop Detector 不是业务逻辑的一部分，它是一个<strong>守门人（Gatekeeper）</strong>。它拦截即将发生的 Action，查阅历史 Trace，然后决定是“放行”、“修改”还是“终止”。</p>
+<h3 id="721">7.2.1 架构图解</h3>
+<p>我们不修改 Agent 的核心 <code>Planner</code>，而是通过组合子（Combinator）将检测能力挂载”上去。</p>
+<div class="codehilite"><pre><span></span><code>               +----------------------+
+               |      Trace Store     |
+               | (History of Actions) |
+               +----------+-----------+
+                          | (Read)
+                          v
+[Planner] --(Action)--&gt; &lt;Loop Detector&gt; --(Decision)--&gt; [Executor]
+                          ^      |
+                          |      +--(Abort/Retry)--&gt; [ErrorHandler]
+                          |
+                   (Update Trace)
+</code></pre></div>
+
+<h3 id="722">7.2.2 类型建模</h3>
+<p>我们需要定义什么是“循环检测”的输入和输出。</p>
+<p><strong>Trace（痕迹）</strong>：不仅是文本日志，更是结构化的事件流。</p>
+<p><strong>Decision（决策）</strong>：这不仅仅是 Boolean，而是一个包含策略的 Sum Type。</p>
+<p><strong>Detector（检测器）</strong>：</p>
+<p><em>(注：这里使用 State Monad 来隐式传递 Trace，或者从外部数据库读取)</em></p>
+<hr />
+<h2 id="73">7.3 循环的分类学与特征工程</h2>
+<p>Coding Agent 的循环比简单的“复读机”要复杂得多。我们需要针对不同类的循环设计不同的特征提取器。</p>
+<h3 id="731-syntactic-repetition">7.3.1 句法重复 (Syntactic Repetition)</h3>
+<p>这是最低级的循环，Agent 像是卡住了。</p>
+<ul>
+<li><strong>表现</strong>：连续发出 <code>cat file.py</code>, <code>cat file.py</code>。</li>
+<li><strong>检测算法</strong>：<strong>N-gram 匹配</strong>。</li>
+<li>将动作序列视为符号流。</li>
+<li>
+<p>检测是否存在后缀与之前的子序列完全匹配。</p>
+</li>
+<li>
+<p><strong>Rule-of-Thumb</strong>：对于只读操作（Read-only），允许较高的重复容忍度（例如 3 次）；对于写操作（Write），容忍度极低（通常 1 次即由警告）。</p>
+</li>
+</ul>
+<h3 id="732-semantic-oscillation-ping-pong">7.3.2 语义振荡 (Semantic Oscillation / Ping-Pong)</h3>
+<p>这是最隐蔽的杀手。Agent 在两个状态间反复横跳。</p>
+<ul>
+<li>
+<p><strong>表现</strong>：
+1. T=1: 修改 A 文件，引入了 Bug X。
+2. T=2: 发现 Bug X，回滚 A 文件。
+3. T=3: 觉得 A 文件还是得改，再次修改（回到 T=1 的状态）。</p>
+</li>
+<li>
+<p><strong>检测算法</strong>：<strong>状态哈希（State Hashing）</strong>。</p>
+</li>
+<li>每次修改文件系统后，计算受影响文件的 Hash。</li>
+<li>维护一个 <code>Set&lt;FileHash&gt;</code>。如果当前 Hash 曾经出现过，且 <code>CurrentStep - LastSeenStep &gt; 1</code>（排除立即撤销），则判定为振荡。</li>
+</ul>
+<h3 id="733-the-stubborn-failure">7.3.3 顽固性错误 (The Stubborn Failure)</h3>
+<p>Agent 面对相同的报错，不做任何策略调整，反复尝试。</p>
+<ul>
+<li><strong>表现</strong>：</li>
+<li>Run Test -&gt; Fail (Error: variable 'x' not found)</li>
+<li>
+<p>Edit -&gt; Run Test -&gt; Fail (Error: variable 'x' not found)</p>
+</li>
+<li>
+<p><strong>检测算法</strong>：<strong>错误指纹 (Error Fingerprinting)</strong>。</p>
+</li>
+<li>原始的报错信息包含时间戳、随机地址，每次都不一样。</li>
+<li><strong>归一化 (Normalization)</strong>：去除数字、GUID、时间戳、文件路径前缀。</li>
+<li>比较归一化后的错误签名。如果连续  次 Action 导致的观察结果（Observation）具有相同的错误签名，触发熔断。</li>
+</ul>
+<hr />
+<h2 id="74">7.4 处置策略：从“劝阻”到“强制接管”</h2>
+<p>当 <code>detect</code> 返回非 <code>Pass</code> 结果时，我们通过 IO Monad 执行干预。这体现了 Effect 系统的优势：我们可以将“错误处理”变成“控制流”。</p>
+<h3 id="1prompt-soft-intervention">策略 1：Prompt 注入 (Soft Intervention)</h3>
+<p>最轻量的干预。不中断执行，只是修改上下文。</p>
+<ul>
+<li><strong>动作</strong>：在 Message History 末尾追加一条 System Message。</li>
+<li><strong>内容</strong>：<em>"Warning: You have tried this action before. The result was X. Please try a different approach."</em></li>
+<li><strong>IO 实现</strong>：<code>State.modify (appendSystemMsg warning)</code>。</li>
+</ul>
+<h3 id="2-dynamic-temperature">策略 2：动态降温/升温 (Dynamic Temperature)</h3>
+<ul>
+<li><strong>原理</strong>：循环往往意味着模型陷入了概率分布的局部极值。我们需要引入熵（Entropy）。</li>
+<li><strong>动作</strong>：</li>
+<li><strong>Cooldown</strong>: 暂停一会（解决 API Rate Limit 导致的伪失败）。</li>
+<li>
+<p><strong>Heatup</strong>: 临时提高 <code>temperature</code> (e.g., 0.1 -&gt; 0.7)，强迫模型输出不一样的 Token。</p>
+</li>
+<li>
+<p><strong>IO 实现</strong>：利用 <code>Reader</code> Monad 的 <code>local</code> 机制，只改变当前 Step 的配置。</p>
+</li>
+</ul>
+<h3 id="3-backtracking">策略 3：强制回退 (Backtracking)</h3>
+<ul>
+<li><strong>原理</strong>：当前路径已死，回到上一个已知的“好状态”。</li>
+<li><strong>动作</strong>：<code>git reset --hard HEAD~1</code> 并从记忆中抹去导致错误的思考链。</li>
+<li><strong>IO 实现</strong>：调用文件系统 Effect 还原快照，修改 Memory State。</li>
+</ul>
+<h3 id="4-human-in-the-loop-escalation">策略 4：人工介入 (Human-in-the-Loop / Escalation)</h3>
+<ul>
+<li><strong>原理</strong>：AI 搞不定了，抛出异常给人类。</li>
+<li><strong>动作</strong>：暂停 Agent，发送通知，等待回调。</li>
+<li><strong>IO 实现</strong>：这是一个异步 Effect。程序挂起（Suspend），序列化当前 Contimuation，等待外部信号唤醒。</li>
+</ul>
+<hr />
+<h2 id="75-total-functional-programming">7.5 形式化保证：Total Functional Programming 的启示</h2>
+<p>为什么我们如此在意 Loop Detection？因为我们想把 Agent 变成一个<strong>全函数（Total Function）</strong>，即对所有输入都在有限时间内停机。</p>
+<p>虽然通用图灵机不可判定，但我们可以构建一个 <strong>Budgeted Monad</strong>。</p>
+<p><strong>定理（非正式）</strong>：
+如果一个 Agent 系统满足以下条件，则必定终止：</p>
+<ol>
+<li>拥有有限的离散状态空间（通过 Hash 近似）。</li>
+<li>或者拥有一个单调递减的计数器（Budget）。</li>
+</ol>
+<p>在工程中，我们通常结合两者：</p>
+<ul>
+<li><strong>Hard Limit</strong>: <code>MaxSteps = 50</code>。</li>
+<li><strong>Soft Limit</strong>: <code>MaxRetries = 3</code> (针对同一错误)。</li>
+</ul>
+<p>通过将 Budget 显式建模为 Effect (<code>StateT Budget m a</code>)，我们在类型层面保证了 Agent 不会无限运行。</p>
+<hr />
+<h2 id="76">7.6 练习题</h2>
+<h3 id="_1">基础题</h3>
+<details>
+<summary><strong>习题 7.1：实现 N-Gram 重复检测器</strong></summary>
+<p><strong>场景</strong>：你需要检测 Agent 是否在重复说话或重复调用工具。
+<strong>输入</strong>：<code>history: List[String]</code>, <code>n: Int</code> (N-gram 长度)。
+<strong>要求</strong>：编写一个纯函数，如果 <code>history</code> 的最后 <code>n</code> 个元素与紧邻的前 <code>n</code> 个元素完全相同，返回 <code>True</code>。
+<strong>提示</strong>：使用列表切片。注意处理列表长度不足 <code>2*n</code> 的情况。</p>
+<details>
+<summary>参考答案思路</summary>
+<div class="codehilite"><pre><span></span><code>Function detectRepetition(history, n):
+    If length(history) &lt; 2 * n:
+        Return False
+
+    // 取最后 n 个
+    suffix = history.slice(-n)
+    // 取倒数第 2n 到 倒数第 n 个
+    previous = history.slice(-2*n, -n)
+
+    Return suffix == previous
+</code></pre></div>
+
+<p>在实际 Agent 中，通常会遍历 <code>n</code> 从 1 到 <code>max_n</code>，以检测不同长度的循环。</p>
+</details>
+</details>
+<details>
+<summary><strong>习题 7.2：预算单调性测试</strong></summary>
+<p><strong>场景</strong>：我们使用 <code>BudgetT</code> Monad Transformer 来管理 Token 和步数预算。
+<strong>要求</strong>：设计一个类型签名和测试用例，证明无论 Agent 内部逻辑如何分支，Budget 总是单调递减的。
+<strong>提示</strong>：这不需要具体代码，而是思维实验。如果 <code>step</code> 函数的类型是 <code>Budget -&gt; (Result, Budget)</code>，如何断言 <code>Budget_out &lt; Budget_in</code>？</p>
+<details>
+<summary>参考答案思路</summary>
+<p><strong>核心断言</strong>：
+对于任何 Kleisli Arrow <code>k :: A -&gt; BudgetT m B</code>：
+执行 <code>(b, remaining) &lt;- runBudgetT (k input) initialBudget</code>
+必须满足 <code>remaining &lt; initialBudget</code>。</p>
+<p>这通常通过在 <code>bind (&gt;&gt;=)</code> 的定义中强制 <code>decrement</code> 来实现。如果这个性质成立，程序就具有“强终止性保证”。</p>
+</details>
+</details>
+<h3 id="_2">挑战题</h3>
+<details>
+<summary><strong>习题 7.3：错误指纹归一化 (Error Normalizer)</strong></summary>
+<p><strong>场景</strong>：Python 的 Traceback 包含行号和文件路径，这些在代码修改后会变，导致字符串匹配失效。
+<strong>输入</strong>：两个 Python 异常堆栈字符串。
+<strong>要求</strong>：设计一个算法或正则策略，判断这两个错误是否“本质上是同一个错误”。
+<strong>提示</strong>：</p>
+<ol>
+<li>忽略内存地址 <code>0x...</code>。</li>
+<li>忽略具体的行号 <code>line 123</code>。</li>
+<li>关注 Exception 类型和最后一行 Error Message。</li>
+</ol>
+<details>
+<summary>参考答案思路</summary>
+<p><strong>算法步骤</strong>：</p>
+<ol>
+<li><strong>提取核心</strong>：只保留 Traceback 的最后一行（如 <code>ValueError: invalid literal for int()</code>）。</li>
+<li><strong>提取路径</strong>：保留文件名的最后一部分（<code>basename</code>），丢弃绝对路径。</li>
+<li>
+<p><strong>正则清洗</strong>：
+* 将 <code>at 0x[0-9a-f]+</code> 替换为 <code>&lt;ADDR&gt;</code>。
+* 将 <code>line \d+</code> 替换为 <code>line &lt;N&gt;</code>。
+* 将引号内的动态内容（如果过长）替换为 <code>&lt;STR&gt;</code>。</p>
+</li>
+<li>
+<p><strong>比较</strong>：比较清洗后的指纹。</p>
+</li>
+</ol>
+<p><strong>进阶</strong>：使 Levenshtein 距离计算相似度，设定阈值（如 90% 相似即视为同一错误）。</p>
+</details>
+</details>
+<details>
+<summary><strong>习题 7.4：设计“逃生解释器” (The Escape Interpreter)</strong></summary>
+<p><strong>场景</strong>：当 <code>detectLoop</code> 决定终止时，它返回一个 <code>Abort</code> 信号。但我们希望 Agent 在临死前能生成一份“遗言”（Post-mortem analysis）。
+<strong>要求</strong>：利用 <code>MonadError</code> 或 <code>EitherT</code>，设计一个控制流：捕获 <code>LoopDetected</code> 错误，利用 LLM 总结当前 Trace，输出分析报告，然后才真正退出。</p>
+<details>
+<summary>参考答案思路</summary>
+<p><strong>伪代码流程</strong>：</p>
+<div class="codehilite"><pre><span></span><code>program = do
+    result &lt;- tryCatch (runAgentLoop) 
+              handleError: \err -&gt; case err of
+                  LoopDetected trace -&gt; do
+                       report &lt;- llm.analyze(trace, &quot;Why did you get stuck?&quot;)
+                       log(report)
+                       return (Failed report)
+                  OtherError e -&gt; throw e
+</code></pre></div>
+
+<p><strong>键点</strong>：
+这里展示了 Effect 系统如何让“错误”变成数据。Loop 不是程序崩溃，而是程序进入了一个特定的处理分支。这要求 Loop Detector 抛出的错误必须携带 <code>Trace</code> 上下文。</p>
+</details>
+</details>
+<hr />
+<h2 id="77-gotchas">7.7 常见陷阱与错误 (Gotchas)</h2>
+<h3 id="1-the-impatient-killer">1. 误杀长耗时任务 (The Impatient Killer)</h3>
+<ul>
+<li><strong>现象</strong>：Agent 启动了一个长时间运行的构建过程，每隔 5 秒轮询一次状态。Loop Detector 看到连续 10 次 <code>check_status</code> 调用，判定为死循环并杀掉。</li>
+<li><strong>原因</strong>：混淆了“轮询（Polling）”和“死循环（Looping）”。</li>
+<li><strong>对策</strong>：</li>
+<li><strong>Observation 变化检测</strong>：即使 Action 一样，如果 Observation（如日志输出的新行、进度百分比）在变化，则重置循环计数器。</li>
+<li><strong>显式 Wait 工具</strong>：提供一个 <code>wait_for_condition</code> 的工具，而不是让 LLM 自己在那 <code>while True</code>。</li>
+</ul>
+<h3 id="2-idempotency-trap">2. 读操作的幂等性 (Idempotency Trap)</h3>
+<ul>
+<li><strong>现象</strong>：Agent 连续两次读取同一个文件，被判定为冗余操作。</li>
+<li><strong>原因</strong>：有时 Agent 第一次读没看清（Context 溢出或注意力丢失），想读第二次。这是合理的。</li>
+<li><strong>对策</strong>：区分 <code>Side-Effect Action</code> (Write/Run) 和 <code>Pure Action</code> (Read)。对 Pure Action 给予极高的容忍度（甚至不纳入 Loop 检测）。</li>
+</ul>
+<h3 id="3-hash">3. Hash 碰撞与噪声</h3>
+<ul>
+<li><strong>现象</strong>：基于 Hash 的 Ping-Pong 检测失效，因为文件里包含了一个自动更新的时间戳注释。</li>
+<li><strong>对策</strong>：在计算 Hash 前进行 <strong>Content Filtering</strong>。过滤掉注释、空行、或者特定的 metadata 区域，只对代码逻辑部分做 Hash。</li>
+</ul>
+<h3 id="4">4. 上下文截断导致的失忆</h3>
+<ul>
+<li><strong>现象</strong>：Agent 陷入循环，因为 Loop Detector 注入的警告信息（"你已经试过这个了"）因为 Context Window 满了被挤出去了。Agent 真的“忘”了。</li>
+<li><strong>对策</strong>：Loop Detector 的状态必须存储在 <strong>System Prompt</strong> 或 <strong>高优先级 Memory 区块</strong> 中，确保永远不会被截断。如果 Context 满了，优先压缩旧的历史，而不是丢弃 Loop Warning。</li>
+</ul>
+<hr />
+<h2 id="78">7.8 本章总结</h2>
+<p>Loop Detection 是 Coding Agent 从“玩具”走向“生产力工具”的关键分水岭。</p>
+<ul>
+<li><strong>不要硬编码</strong>：使用 IO/Kleisli 中间件模式，保持业务逻辑纯净。</li>
+<li><strong>多维视角</strong>：结合句法（N-gram）、语义（Ping-Pong）和结果（Error Fingerprint）进行综合判断。</li>
+<li><strong>拥抱失败</strong>：承认 Agent 会死循环，设计好“逃生舱”和“验尸报告”机制，让每一次失败都成为优化的养料。</li>
+</ul>
+            </article>
+            
+            <nav class="page-nav"><a href="chapter6.html" class="nav-link prev">← Chapter 6 — 事件建模：IO timeout、重试、退避、熔断与预算</a><a href="chapter8.html" class="nav-link next">Chapter 8 — A/B Test 与评估：把实验嵌进 IO/Kleisli 管道 →</a></nav>
+        </main>
+    </div>
+</body>
+</html>

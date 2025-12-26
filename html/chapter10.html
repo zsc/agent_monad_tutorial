@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>Chapter 10 — 与 FRP 的关系：当 Agent 变成“事件流处理器” (chapter10.md)</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <nav class="tree-nav" role="tree">
+                    <div class="tree-item " >
+                        <a href="index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">《用 IO Monad 搭建 LLM Agent：从 Kleisli 到事件建模与 FRP》目录（index.md）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter1.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 1 — LLM Agent 的“抽象边界”：为什么从 IO Monad 出发</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter2.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 2 — IO Monad 速成：从概念到工程实现</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter3.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 3 — Kleisli Arrow：把“带 IO 的函数”当作可组合箭头</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter4.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 4 — Agent DSL：把工具、记忆与控制流做成“可解释的 effect”</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter5.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 5 — Runtime 与调度：从解释器到并发、取消与资源管理 (chapter5.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter6.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 6 — 事件建模：IO timeout、重试、退避、熔断与预算</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter7.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 7 — Coding Agent 的 Loop Detection：让 Agent 可终止、可解释</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter8.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 8 — A/B Test 与评估：把实验嵌进 IO/Kleisli 管道</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter9.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 9 — 可观测性：Trace/Span、日志、指标与可复现</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item active" >
+                        <a href="chapter10.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 10 — 与 FRP 的关系：当 Agent 变成“事件流处理器” (chapter10.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter11.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 11 — 综合案例：实现一个可插拔的 Coding Agent (chapter11.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter12.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 12 — 扩展阅读与路线图：通往类型安全与生产环境的彼岸</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="CLAUDE.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Untitled</span>
+                        </a>
+                    </div>
+                </nav>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <h1 id="chapter-10-frp-agent-chapter10md">Chapter 10 — 与 FRP 的关系：当 Agent 变成“事件流处理器” (chapter10.md)</h1>
+<h2 id="1-">1. 开篇段落：打破“请求-响应”的幻觉</h2>
+<p>在前九章中，我们构建的 Agent 主要是基于 <strong>IO Monad</strong> 和 <strong>Kleisli Arrow</strong> 的。这种视角的隐含假设是：世界是<strong>离散</strong>且<strong>串行</strong>的——用户发一个请求，Agent 思考、行动、最后给出一个完整的答复。</p>
+<p>然而，在真实的生产级应用（如 Cursor, ChatGPT, Claude）中，用户体验（UX）的需求远比这复杂：</p>
+<ul>
+<li><strong>Token Streaming</strong>：用户不能等 10 秒才看到第一个字，他们需要看到“打字机”效果。</li>
+<li><strong>Cancellation (打断)</strong>：当 Agent 正在写一段冗长的代码时，用户发现需求描述错了，点击“停止生成”或直接输入新指令。Agent 必须立即停止当前的思维链。</li>
+<li><strong>Push Events (服务端推送)</strong>：系统可能需要主动告诉 Agent “你的额度用完了”或“底层知识库正在更新，暂停检索”。</li>
+<li><strong>Multimodal Sync (多模态同步)</strong>：当 Agent 同时处理语音流和文本流时，如何对齐时间轴？</li>
+</ul>
+<p>这时，单纯的 <code>IO a</code>（描述一个动作）已经不够用了。我们需要 <strong>FRP (Functional Reactive Programming)</strong>。FRP 让我们将 Agent 视为一个<strong>随时间变换的信号处理器</strong>，而不仅仅是一个函数。</p>
+<p><strong>本章学习目标</strong>：</p>
+<ol>
+<li><strong>思维转换</strong>：从“执行步骤”转向“处理流”。</li>
+<li><strong>架构融合</strong>：理解如何将 Kleisli Arrow (<code>a -&gt; IO b</code>) 嵌入到 Stream (<code>Stream IO a</code>) 中。</li>
+<li><strong>核心模式</strong>：掌握 <code>switchMap</code>（处理打断）、<code>merge</code>（处理并发）、<code>scan</code>（处理状态累积）在 Agent 中的应。</li>
+<li><strong>背压 (Backpressure)</strong>：如何优雅地处理 LLM 生成速度与网络传输速度不匹配的问题。</li>
+</ol>
+<hr />
+<h2 id="2">2. 核心概念：时间轴上的值</h2>
+<p>FRP 的核心在于引入了<strong>时间</strong>作为一等公民。在 Haskell/Scala 的函数式生态（如 fs2, ZIO-Stream, RxJS）中，我们主要关注两个抽象：</p>
+<h3 id="21-event-stream">2.1 Event / Stream (离散事件流)</h3>
+<p>描述在时间轴上零星发生的一系列事件。</p>
+<ul>
+<li><strong>类型隐喻</strong>：<code>Stream[IO, A]</code> ≈ <code>List[A]</code> 但分布在时间轴上，且获取下一个元素可能包含副作用（IO）。</li>
+<li><strong>Agent 场景</strong>：</li>
+<li>LLM 生成的每一个 Token (<code>Token "H"</code>, <code>Token "e"</code>, <code>Token "llo"</code>...)。</li>
+<li>Tool 调用的中间状态 (<code>Log "Searching Google..."</code>, <code>Log "Found 3 results"</code>...)。</li>
+<li>用户的输入消息流。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code>[ASCII Diagram: The Event Stream]
+Time:   0s------1s------2s------3s------4s------&gt;
+Stream: O-------O-------O-------X-------|
+Values: &quot;User&quot;  &quot;Start&quot; &quot;Think&quot; Error   End
+</code></pre></div>
+
+<h3 id="22-behavior-signal">2.2 Behavior / Signal (连续行为)</h3>
+<p>描述任意时间点都有定义的值。通常由 Stream 通过 <code>scan</code> (累积) 或 <code>hold</code> (保持) 得到。</p>
+<ul>
+<li><strong>类型隐喻</strong>：<code>Signal[IO, A]</code> ≈ <code>Time -&gt; A</code>。</li>
+<li><strong>Agent 场景</strong>：</li>
+<li>当前已经累积生成的完整回复文本（String）。</li>
+<li>Agent 的当前情绪状态或上下文窗口的占用率。</li>
+<li>当前的 UI 状态（"Idle", "Generating", "Error"）。</li>
+</ul>
+<div class="codehilite"><pre><span></span><code>[ASCII Diagram: Behavior from Events]
+Events:   ---&quot;H&quot;---&quot;e&quot;---&quot;l&quot;---&quot;l&quot;---&quot;o&quot;---&gt;
+Behavior: &quot;H&quot;    &quot;He&quot;  &quot;Hel&quot; &quot;Hell&quot; &quot;Hello&quot;  (总是持有当前完整值)
+</code></pre></div>
+
+<hr />
+<h2 id="3-kleisli-stream">3. 架构融合：Kleisli 在 Stream 内部</h2>
+<p>很多开发者困惑：“如果我用了 Stream，还要 Kleisli 吗？”
+答案是：<strong>必须还要。</strong></p>
+<ul>
+<li><strong>Kleisli (<code>Input -&gt; IO Output</code>)</strong> 定义了<strong>原子逻辑</strong>（例如：如何调用一次 LLM，如何执行一次 SQL）。</li>
+<li><strong>Stream</strong> 定义了<strong>逻辑的调度与组合</strong>（例如：对每个用户输入，执行一次 Kleisli 逻辑，并把结果扁平化输出）。</li>
+</ul>
+<h3 id="31-evalmap-mapasync">3.1 核心算子：<code>evalMap</code> (或 <code>mapAsync</code>)</h3>
+<p>这是连接两个世界的桥梁。它允许我们在流的每一个元素上运行一个 IO Effect（即 Kleisli Arrow）。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- 伪代码类型签名</span>
+<span class="nf">evalMap</span><span class="w"> </span><span class="kt">:</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">IO</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">Stream</span><span class="w"> </span><span class="kt">IO</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">Stream</span><span class="w"> </span><span class="kt">IO</span><span class="w"> </span><span class="n">b</span>
+</code></pre></div>
+
+<p><strong>Agent 管道示例</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="n">graph</span><span class="w"> </span><span class="n">LR</span>
+<span class="w">    </span><span class="n">A</span><span class="p">[</span><span class="n">User</span><span class="w"> </span><span class="n">Input</span><span class="w"> </span><span class="n">Stream</span><span class="p">]</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">evalMap</span><span class="o">|</span><span class="w"> </span><span class="n">B</span><span class="p">(</span><span class="n">Plan</span><span class="w"> </span><span class="n">Logic</span><span class="w"> </span><span class="o">&lt;</span><span class="n">br</span><span class="o">/&gt;</span><span class="w"> </span><span class="n">Kleisli</span><span class="p">)</span>
+<span class="w">    </span><span class="n">B</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">Stream</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">Tasks</span><span class="o">|</span><span class="w"> </span><span class="n">C</span><span class="p">[</span><span class="n">Task</span><span class="w"> </span><span class="n">Stream</span><span class="p">]</span>
+<span class="w">    </span><span class="n">C</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">evalMap</span><span class="o">|</span><span class="w"> </span><span class="n">D</span><span class="p">(</span><span class="n">Tool</span><span class="w"> </span><span class="n">Execution</span><span class="w"> </span><span class="o">&lt;</span><span class="n">br</span><span class="o">/&gt;</span><span class="w"> </span><span class="n">Kleisli</span><span class="p">)</span>
+<span class="w">    </span><span class="n">D</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">Stream</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">Results</span><span class="o">|</span><span class="w"> </span><span class="n">E</span><span class="p">[</span><span class="n">Output</span><span class="w"> </span><span class="n">Stream</span><span class="p">]</span>
+</code></pre></div>
+
+<p>这不仅让代码保持了 Kleisli 的可组合性，还赋予了它流式的特性。</p>
+<hr />
+<h2 id="4">4. 关键交互模式解析</h2>
+<p>本节介绍 FRP 如何优雅解决传统 Promise/Future 模式下极难处理的 Agent 交互问题。</p>
+<h3 id="41-switchmap-cancellation">4.1 模式一：SwitchMap 实现“喜新厌旧” (Cancellation)</h3>
+<p><strong>场景</strong>：用户问“如何做番茄炒蛋？”，Agent 开始联网搜索、写步骤（预计耗时 10s）。2s 后，用户改主意了，输入“算了，做红烧肉吧”。</p>
+<p><strong>传统做法</strong>：你需要手动护一个 <code>currentTaskReference</code>，每次新请求进来先 <code>cancel()</code> 旧任务。代码非常命令式且易碎。</p>
+<p><strong>FRP 做法 (<code>switchMap</code>)</strong>：
+<code>switchMap</code> 的语义是：当上游产生新值（新用户消息）时，<strong>立即取消</strong>下游正在进行的流（旧的消息处理逻辑），并订阅新流。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// FRP 风格伪代码</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">outputStream</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">userInputStream</span><span class="p">.</span><span class="nx">pipe</span><span class="p">(</span>
+<span class="w">  </span><span class="c1">// 当新消息到来，自动取消上一条消息产生的处理流</span>
+<span class="w">  </span><span class="nx">switchMap</span><span class="p">(</span><span class="nx">userMsg</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span>
+<span class="w">    </span><span class="nx">runAgentPipeline</span><span class="p">(</span><span class="nx">userMsg</span><span class="p">)</span><span class="w"> </span><span class="c1">// 返回 Stream&lt;Token&gt;</span>
+<span class="w">  </span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div>
+
+<p><strong>结果</strong>：Agent 永远只处理“最新”的指令，旧的计算资源被自动释放（包括关闭 HTTP 连接、停止 LLM 推理），无需一行手动的 <code>cancel</code> 代码。</p>
+<h3 id="42-merge-interleaved-output">4.2 模式二：Merge 实现“多路输出” (Interleaved Output)</h3>
+<p><strong>场景</strong>：Agent 在思考（Thinking Process）的同时，可能在并行调用工具。我们需要在 UI 上同时展示“思考链日志”和“最终回复 Token”。</p>
+<p><strong>FRP 做法 (<code>merge</code>)</strong>：
+Agent 的执行函数可以返回一个混合类型的流：<code>Stream[IO, Either[Log, Token]]</code>。</p>
+<div class="codehilite"><pre><span></span><code><span class="kr">type</span><span class="w"> </span><span class="kt">AgentEvent</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kt">Log</span><span class="w"> </span><span class="kt">String</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kt">Token</span><span class="w"> </span><span class="kt">String</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kt">ToolResult</span><span class="w"> </span><span class="kt">Json</span>
+
+<span class="c1">-- 内部逻辑：同时跑两个流</span>
+<span class="nf">runAgent</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">Query</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">Stream</span><span class="w"> </span><span class="kt">IO</span><span class="w"> </span><span class="kt">AgentEvent</span>
+<span class="nf">runAgent</span><span class="w"> </span><span class="n">q</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span>
+<span class="w">  </span><span class="kr">let</span><span class="w"> </span><span class="n">thoughtStream</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="n">streamThoughts</span><span class="w"> </span><span class="n">q</span><span class="w">   </span><span class="c1">-- 产生日志</span>
+<span class="w">  </span><span class="kr">let</span><span class="w"> </span><span class="n">answerStream</span><span class="w">  </span><span class="ow">=</span><span class="w"> </span><span class="n">streamAnswer</span><span class="w"> </span><span class="n">q</span><span class="w">     </span><span class="c1">-- 产生 Token</span>
+<span class="w">  </span><span class="kr">in</span><span class="w"> </span><span class="n">merge</span><span class="p">(</span><span class="n">thoughtStream</span><span class="p">,</span><span class="w"> </span><span class="n">answerStream</span><span class="p">)</span><span class="w">  </span><span class="c1">-- 合并输出</span>
+</code></pre></div>
+
+<h3 id="43-debounce">4.3 模式三：Debounce 解决“羊群效应”</h3>
+<p><strong>场景</strong>：Agent 接入了一个实时的文档编辑器。每当用户打字，Agent 都要检查是否需要提供补全。如果用户打字很快（5次/秒），直接触发 Agent 会导致昂贵的 API 调用和速率限制（Rate Limit）。</p>
+<p><strong>FRP 做法 (<code>debounce</code>)</strong>：
+<code>debounce(500ms)</code>：只有当输入流静止 500ms 后，才把最新的值发射出去。</p>
+<div class="codehilite"><pre><span></span><code>Input:  H-e-l-l-o-(pause)------W-o-r-l-d-(pause)--&gt;
+Debounce: ------------------&quot;Hello&quot;---------------&quot;World&quot;--&gt;
+Output:   ------------------Trigger Agent----------Trigger Agent--&gt;
+</code></pre></div>
+
+<hr />
+<h2 id="5-backpressure">5. 背压 (Backpressure)：流控的艺术</h2>
+<p>在 IO Monad 中，我们很少谈论背压，因为它是同步阻塞的。但在流式系统中，如果 <strong>生产者（LLM）</strong> 比如每秒生成 100 个 Token，而 <strong>消费者（前端/网络）</strong> 每秒只能处理 10 个，会发生什么？</p>
+<ol>
+<li><strong>无背压 (Push-based, e.g., standard Callbacks)</strong>：内存中堆积大量未发送的 Token，最终导致 OOM (Out of Memory)。</li>
+<li><strong>有背压 (Pull-based, e.g., fs2, Rust AsyncStream)</strong>：
+* 下游处理完一个，才向上游请求下一个。
+* 这种“拉取”信号会一直传播到源头。
+* 如果网络慢，Agent 内部的迭代器就会暂停执行（Suspend）。
+* <strong>结果</strong>：系统内存占用恒定，不会因为网络抖动而崩溃。</li>
+</ol>
+<blockquote>
+<p><strong>Rule of Thumb</strong>: 在构建高并发 Agent 服务网关时，务必选用支持背压的 Stream 库（如 Scala fs2, Java Reactor, Rust Tokio-Stream）。</p>
+</blockquote>
+<hr />
+<h2 id="6">6. 本章小结</h2>
+<ol>
+<li><strong>IO 是骨，FRP 是神经</strong>：IO Monad 定义了静态的依赖关系，FRP 定义了动态的数据流动。</li>
+<li><strong>Agent 是流转换器</strong>：最通用的 Agent 签名不是 <code>Input -&gt; Output</code>，而是 <code>Stream Input -&gt; Stream Output</code>。</li>
+<li><strong>时间是逻辑的一部分</strong>：超时、重试、打断、去抖动，这些不是“基础设施代码”，而是应该用 FRP 算子表达的“业务逻辑”。</li>
+<li><strong>取消是自动的</strong>：通过 <code>switchMap</code> 和 <code>takeUntil</code>，我们获得了免费的并发安全性和资源清理能力。</li>
+</ol>
+<hr />
+<h2 id="7">7. 练习题</h2>
+<h3 id="_1">基础题</h3>
+<p><strong>Q1. 状态映射</strong>
+假设你的 Agent 输出流包含三种事件：
+<code>data Event = Start | Token(String) | End</code>
+请写出（伪代码）如何利用 <code>scan</code> (fold) 算子，将这个事件流转换为一个包含“当前完整文本”的 <strong>Behavior</strong>。</p>
+<details>
+<summary>参考答案</summary>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- 状态类型</span>
+<span class="kr">data</span><span class="w"> </span><span class="kt">State</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kt">State</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">text</span><span class="kt">:</span><span class="w"> </span><span class="kt">String</span><span class="p">,</span><span class="w"> </span><span class="n">isFinished</span><span class="kt">:</span><span class="w"> </span><span class="kt">Boolean</span><span class="w"> </span><span class="p">}</span>
+<span class="nf">initialState</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kt">State</span><span class="p">(</span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">false</span><span class="p">)</span>
+
+<span class="c1">-- 转移函数</span>
+<span class="nf">update</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">State</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">Event</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">State</span>
+<span class="nf">update</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="kt">Start</span><span class="w">    </span><span class="ow">=</span><span class="w"> </span><span class="n">s</span>
+<span class="nf">update</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="p">(</span><span class="kt">Token</span><span class="w"> </span><span class="n">t</span><span class="p">)</span><span class="ow">=</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">text</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="n">s</span><span class="o">.</span><span class="n">text</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">t</span><span class="w"> </span><span class="p">}</span>
+<span class="nf">update</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="kt">End</span><span class="w">      </span><span class="ow">=</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">isFinished</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="n">true</span><span class="w"> </span><span class="p">}</span>
+
+<span class="c1">-- FRP 转换</span>
+<span class="nf">textBehavior</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">Stream</span><span class="w"> </span><span class="kt">IO</span><span class="w"> </span><span class="kt">Event</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">Stream</span><span class="w"> </span><span class="kt">IO</span><span class="w"> </span><span class="kt">State</span>
+<span class="nf">textBehavior</span><span class="w"> </span><span class="n">events</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="n">events</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">initialState</span><span class="p">)(</span><span class="n">update</span><span class="p">)</span>
+</code></pre></div>
+
+<p><em>解释：<code>scan</code> 从初始状态开始，对每一个新事件应用更新函数，并输出新的状态流。这让我们能随时获得当前的完整文本。</em></p>
+</details>
+<p><strong>Q2. 简单的超时</strong>
+使用流式算子，描述这样一个逻辑：
+“启动 Agent 思考，如果 5 秒内没有产生任何 Token（注意：不是完成，是没有任何输出），则切换到备用的规则引擎 Agent。”</p>
+<details>
+<summary>参考答案</summary>
+<div class="codehilite"><pre><span></span><code><span class="c1">// 伪代码</span>
+<span class="nx">llmStream</span>
+<span class="w">  </span><span class="p">.</span><span class="nx">timeout</span><span class="p">(</span><span class="mf">5.</span><span class="nx">seconds</span><span class="p">)</span><span class="w"> </span><span class="c1">// 如果 5s 内无元素，抛出 TimeoutError</span>
+<span class="w">  </span><span class="p">.</span><span class="nx">handleErrorWith</span><span class="p">(</span><span class="nx">error</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">     </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">error</span><span class="w"> </span><span class="ow">instanceof</span><span class="w"> </span><span class="nx">TimeoutError</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="nx">ruleEngineStream</span><span class="w"> </span><span class="c1">// 切换到备用流</span>
+<span class="w">     </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">       </span><span class="k">throw</span><span class="w"> </span><span class="nx">error</span>
+<span class="w">     </span><span class="p">}</span>
+<span class="w">  </span><span class="p">})</span>
+</code></pre></div>
+
+<p><em>关键点：<code>timeout</code> 算子用于元素到达的时间间隔。</em></p>
+</details>
+<p><strong>Q3. 去重过滤</strong>
+有些劣质模型会陷入重复循环，疯狂输出 "User: User: User: ..."。
+请设计一个流处理器，检测连续重复的 Token 块，如果发现重复，则终止流。</p>
+<details>
+<summary>参考答案</summary>
+<div class="codehilite"><pre><span></span><code><span class="nf">distinctUntilChanged</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">Stream</span><span class="w"> </span><span class="kt">IO</span><span class="w"> </span><span class="kt">Token</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">Stream</span><span class="w"> </span><span class="kt">IO</span><span class="w"> </span><span class="kt">Token</span>
+<span class="nf">distinctUntilChanged</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="n">s</span><span class="o">.</span><span class="n">zipWithPrevious</span><span class="o">.</span><span class="n">flatMap</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">(</span><span class="n">prev</span><span class="p">,</span><span class="w"> </span><span class="n">current</span><span class="p">)</span><span class="w"> </span><span class="ow">-&gt;</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="n">prev</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">current</span><span class="w"> </span><span class="kr">then</span><span class="w"> </span><span class="kt">Stream</span><span class="o">.</span><span class="n">empty</span><span class="w"> </span><span class="p">(</span><span class="n">or</span><span class="w"> </span><span class="n">raise</span><span class="w"> </span><span class="kt">Error</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">else</span><span class="w"> </span><span class="kt">Stream</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">current</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><em>进阶提示：简单的 <code>prev == current</code> 只能检测单词级重复。真正的 loop detection 需要维护一个较大的滑动窗口 (Sliding Window)。</em></p>
+</details>
+<h3 id="_2">挑战题</h3>
+<p><strong>Q4. "Human-in-the-loop" 的流式建模</strong>
+设计一个 Agent 工作流：</p>
+<ol>
+<li>Agent 分析问题，提出 Plan（Stream 输出）。</li>
+<li><strong>暂停</strong>，等待用户在 UI 上点击“批准”或“修改”。</li>
+<li>收到批准后，继续执行工具调用（Stream 输出）。
+这在 FRP 中如何达？特别是“等待用户”这一步，流并没有结束，只是挂起了。</li>
+</ol>
+<p><em>Hint: 使用 <code>Queue</code> 或 <code>Deferred</code> 来桥接用户输入与流。</em></p>
+<details>
+<summary>参考答案</summary>
+<p>这是一个典型的 <strong>Async Coordination</strong> 问题。</p>
+<ol>
+<li>Agent 流执行到 Plan 阶段，将 Plan 推送到 UI。</li>
+<li>然后，Agent 流进入 <code>flatMap</code>，挂起在一个 <code>Promise</code> (或 <code>Deferred</code>) 上。</li>
+<li><code>agentFlow = planStream.flatMap(plan -&gt; waitForUserApproval(plan).flatMap(approval -&gt; execute(plan)))</code></li>
+<li>UI 上的点击事件触发 <code>promise.complete(approvalData)</code>。</li>
+<li>流解除阻塞，继续运行。</li>
+</ol>
+<p>在 FRP 中，这也可以通过将“用户点击流”与“Agent 状态流”进行 <code>zip</code> 或 <code>withLatestFrom</code> 来实现，但利用 <code>Deferred</code> 在 IO 层控制通常更直观。</p>
+</details>
+<p><strong>Q5. 复杂的重试策略 (Retry with Backoff)</strong>
+实现一个算子 <code>retryWithBackoff</code>，它接受一个可能失败的流。如果流报错，它会重新订阅该流，但在重试前会等待  秒。如超过 3 次失败，则彻底抛出异常。
+要求：不仅仅是重试 HTTP 请求，而是重试整个流的生成过程。</p>
+<details>
+<summary>参考答案</summary>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">retryWithBackoff</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">source</span><span class="p">:</span><span class="w"> </span><span class="nc">Stream</span><span class="p">[</span><span class="nc">IO</span><span class="p">,</span><span class="w"> </span><span class="nc">A</span><span class="p">],</span><span class="w"> </span><span class="n">retries</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="n">delay</span><span class="p">:</span><span class="w"> </span><span class="nc">FiniteDuration</span><span class="p">):</span><span class="w"> </span><span class="nc">Stream</span><span class="p">[</span><span class="nc">IO</span><span class="p">,</span><span class="w"> </span><span class="nc">A</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">source</span><span class="p">.</span><span class="n">handleErrorWith</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">retries</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="c1">// 产生一个纯等待的流，然后拼接上递归调用的流</span>
+<span class="w">      </span><span class="nc">Stream</span><span class="p">.</span><span class="n">sleep</span><span class="p">[</span><span class="nc">IO</span><span class="p">](</span><span class="n">delay</span><span class="p">)</span><span class="w"> </span><span class="o">++</span><span class="w"> </span>
+<span class="w">      </span><span class="n">retryWithBackoff</span><span class="p">(</span><span class="n">source</span><span class="p">,</span><span class="w"> </span><span class="n">retries</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">delay</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nc">Stream</span><span class="p">.</span><span class="n">raiseError</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><em>这个模式体现了流的</em><em>组合性</em><em>：重试逻辑只是包裹在原始流外面的另一层流。</em></p>
+</details>
+<hr />
+<h2 id="8-gotchas">8. 常见陷阱与错误 (Gotchas)</h2>
+<h3 id="81-io">8.1 陷阱：IO 不纯导致流不可复用</h3>
+<p><strong>场景</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">val</span><span class="w"> </span><span class="n">request</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">http</span><span class="p">.</span><span class="n">post</span><span class="p">(</span><span class="s">&quot;...&quot;</span><span class="p">)</span><span class="w"> </span><span class="c1">// 这是一个已经执行的 Future/Promise，不是 IO 描述！</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">stream</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Stream</span><span class="p">.</span><span class="n">eval</span><span class="p">(</span><span class="n">request</span><span class="p">).</span><span class="n">repeat</span>
+</code></pre></div>
+
+<p><strong>错误</strong>：如果在构建 Stream 之前就把 IO 执行了（即变成了 eagerly evaluated 的值），那么 <code>repeat</code> 只会重复发射同一个结果，而不会重新发起 HTTP 请求。
+<strong>修正</strong>：确保传给 Stream 的是 <code>IO</code> (描述)，而不是 <code>Future</code> (运行中的任务)。必须用 <code>Stream.eval(IO.delay(...))</code>。</p>
+<h3 id="82-flatmap">8.2 陷阱：在 flatMap 中忘记处理下游关闭</h3>
+<p><strong>场景</strong>：你写了一个自定义的 <code>Piping</code> 逻辑，从 socket 读取数据。
+<strong>现象</strong>：用户关闭了连接，但你的 Agent 还在后台疯狂跑，因为你没有检查 <code>downstream.isCancelled</code>。
+<strong>修正</strong>：使用高阶 FRP 库（如 fs2/ZIO）通常会自动处理上游取消传播。但如果你手写 <code>while</code> 循环在 IO 中推数据，必须周期性检查 <code>context.isCancelled</code>。</p>
+<h3 id="83-log-result">8.3 陷阱：混淆 Log 流与 Result 流</h3>
+<p><strong>现象</strong>：下游消费者期望收到 JSON 格式的最终答案，但你在同一个流里混入了 <code>String</code> 类型的 "Thinking..." 日志，导致 JSON 解析器崩溃。
+<strong>修正</strong>：</p>
+<ol>
+<li>使用 <strong>Sum Type</strong> (Union Type) 包装所有输出<code>Event = Log String | Result Json</code>。</li>
+<li>或者使用 <strong>Side Channel</strong>：日志走 <code>Writer</code> Monad 或独立的 Logger 收集器，只有纯净的结果进入主数据流（视需求而定，交互式 Agent 通常推荐方案 1）。</li>
+</ol>
+<h3 id="84-cold-stream-hot-stream">8.4 陷阱：不小心把 Cold Stream 变成了 Hot Stream</h3>
+<p><strong>场景</strong>：<code>val s = Stream.eval(expensiveAIQuery)</code>。
+如果有两个 UI 组件订阅了 <code>s</code>（一个显示弹窗，一个显示历史记录），<code>expensiveAIQuery</code> 会被执行两次，扣两份钱。
+<strong>修正</strong>：使用 <code>broadcast</code> 或 <code>share</code> 算子，让多个订阅者共享同一个底层的执行源。</p>
+            </article>
+            
+            <nav class="page-nav"><a href="chapter9.html" class="nav-link prev">← Chapter 9 — 可观测性：Trace/Span、日志、指标与可复现</a><a href="chapter11.html" class="nav-link next">Chapter 11 — 综合案例：实现一个可插拔的 Coding Agent (chapter11.md) →</a></nav>
+        </main>
+    </div>
+</body>
+</html>

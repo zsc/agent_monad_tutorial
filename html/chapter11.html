@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>Chapter 11 — 综合案例：实现一个可插拔的 Coding Agent (chapter11.md)</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <nav class="tree-nav" role="tree">
+                    <div class="tree-item " >
+                        <a href="index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">《用 IO Monad 搭建 LLM Agent：从 Kleisli 到事件建模与 FRP》目录（index.md）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter1.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 1 — LLM Agent 的“抽象边界”：为什么从 IO Monad 出发</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter2.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 2 — IO Monad 速成：从概念到工程实现</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter3.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 3 — Kleisli Arrow：把“带 IO 的函数”当作可组合箭头</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter4.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 4 — Agent DSL：把工具、记忆与控制流做成“可解释的 effect”</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter5.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 5 — Runtime 与调度：从解释器到并发、取消与资源管理 (chapter5.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter6.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 6 — 事件建模：IO timeout、重试、退避、熔断与预算</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter7.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 7 — Coding Agent 的 Loop Detection：让 Agent 可终止、可解释</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter8.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 8 — A/B Test 与评估：把实验嵌进 IO/Kleisli 管道</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter9.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 9 — 可观测性：Trace/Span、日志、指标与可复现</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter10.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 10 — 与 FRP 的关系：当 Agent 变成“事件流处理器” (chapter10.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item active" >
+                        <a href="chapter11.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 11 — 综合案例：实现一个可插拔的 Coding Agent (chapter11.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter12.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 12 — 扩展阅读与路线图：通往类型安全与生产环境的彼岸</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="CLAUDE.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Untitled</span>
+                        </a>
+                    </div>
+                </nav>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <h1 id="chapter-11-coding-agent-chapter11md">Chapter 11 — 综合案例：实现一个可插拔的 Coding Agent (chapter11.md)</h1>
+<h2 id="1">1. 开篇段落：从积木到摩天大楼</h2>
+<p>在前面的十章中，我们拆解了构建 LLM Agent 的所有数学基础与工程原语：IO Monad 负责副作用管理，Kleisli Arrows 负责逻辑组合，State Monad 负责记忆管理，FRP 负责流式交互。现在，是时候将它们组装在一起了。</p>
+<p>本章我们将构建 <strong><code>PolyGlotCoder</code></strong> —— 一个生产级、架构清晰的 Coding Agent。之所以称为“可插拔（Pluggable）”，是因为它遵循<strong>依赖倒置原则</strong>（Dependency Inversion Principle）的函数式版本：</p>
+<ol>
+<li><strong>能力与实现分离</strong>：Agent 只知道“我要读文件”，不知道是读本地磁盘还是 GitHub API。</li>
+<li><strong>策略与执行分离</strong>：Agent 的 Loop Detection、Retry 策略是作为“中间件”挂载的，而不是硬编码在业务流中。</li>
+<li><strong>IO 与 UI 分离</strong>：Agent 核心在 IO Monad 中同步运行，通过 FRP 管道与异步的 UI 世界通信。</li>
+</ol>
+<p><strong>学习目标</strong>：</p>
+<ul>
+<li><strong>架构设计</strong>：掌握 Final Tagless / Free Monad 风格的 Agent 分层架构。</li>
+<li><strong>流程编排</strong>：实战使用 Kleisli Arrow 串联 Plan-Act-Observe 循环。</li>
+<li><strong>安全拦截</strong>：实现基于指纹的 Loop Detection 中间件。</li>
+<li><strong>实验框架</strong>：如何在不修改核心代码的前提下，通过解释器注入 A/B Test。</li>
+</ul>
+<hr />
+<h2 id="2">2. 核心架构：洋葱模型</h2>
+<p>我们将采用<strong>洋葱架构（Onion Architecture）</strong>，由内向外依次是：</p>
+<ol>
+<li><strong>Domain Algebra (DSL)</strong>: 定义 Agent 能做什么（Effect 接口）。</li>
+<li><strong>Business Logic (Program)</strong>: 使用 DSL 编写的纯逻辑（Kleisli Arrows）。</li>
+<li><strong>Middleware (Interceptors)</strong>: 日志、熔断、循环检测。</li>
+<li><strong>Interpreters (Runtime)</strong>: 将 DSL 翻译为实际操作（API 调用、Docker 执行）。</li>
+<li><strong>External Interface (FRP)</strong>: 处理用户输入流和 UI 输出流。</li>
+</ol>
+<div class="codehilite"><pre><span></span><code>       +-------------------------------------------------------+
+       |                  FRP Interface (UI/Stream)            |
+       +-------------------------------------------------------+
+              | (Events)                         ^ (Tokens/Logs)
++-------------v----------------------------------|-------------+
+|      Runtime / Interpreters (The &quot;Dirty&quot; World)              |
+|  [Docker] [OpenAI API] [Vector DB] [Prometheus] [AB Platform]|
++--------------------------------------------------------------+
+              | (Inject Implementation)
++-------------v------------------------------------------------+
+|      Middleware Layer (Safety &amp; Observability)               |
+|  [Loop Detector] [Budget Breaker] [Tracer] [Retry Policy]    |
++--------------------------------------------------------------+
+              | (Wrap)
++-------------v------------------------------------------------+
+|      Business Logic (Pure Kleisli Arrows)                    |
+|  Plan -&gt; Code -&gt; Lint -&gt; Test -&gt; Fix -&gt; Submit               |
++--------------------------------------------------------------+
+              | (Depends on)
++-------------v------------------------------------------------+
+|      Domain Algebra (DSL Interface)                          |
+|  type CodingApp = Chat &amp; FS &amp; Shell &amp; Git &amp; Clock            |
++--------------------------------------------------------------+
+</code></pre></div>
+
+<hr />
+<h2 id="3-domain-algebra">3. 第一层：定义能力代数 (Domain Algebra)</h2>
+<p>我们不直接写代码，而是定义一组 <strong>Effect 接口</strong>。在 TypeScript 中通常表现为 Interface，在 Scala/Haskell 中表现为 Type Class。</p>
+<h3 id="31-effect">3.1 核心 Effect 定义</h3>
+<p>我们需要以下五组核心能力：</p>
+<ol>
+<li><strong><code>LLM</code></strong>: 负责大模型交互。</li>
+<li><strong><code>WorkSpace</code></strong>: 负责文件与 Shell 操作（通常在沙箱中）。</li>
+<li><strong><code>Git</code></strong>: 负责版本控制。</li>
+<li><strong><code>Observability</code></strong>: 负责 Metrics 和 Tracing。</li>
+<li><strong><code>Experiment</code></strong>: 负责获取 A/B 测试配置</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- 伪代码形式的代数定义</span>
+
+<span class="c1">-- 1. LLM 能力</span>
+<span class="nf">interface</span><span class="w"> </span><span class="kt">LLM</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="kr">where</span>
+<span class="w">  </span><span class="n">chat</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="p">[</span><span class="kt">Message</span><span class="p">]</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">ModelConfig</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="kt">Stream</span><span class="o">&lt;</span><span class="kt">String</span><span class="o">&gt;</span>
+<span class="w">  </span><span class="n">embed</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">String</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="kt">Vector</span>
+
+<span class="c1">-- 2. 沙箱环境能力</span>
+<span class="nf">interface</span><span class="w"> </span><span class="kt">WorkSpace</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="kr">where</span>
+<span class="w">  </span><span class="n">readFile</span><span class="w">  </span><span class="ow">::</span><span class="w"> </span><span class="kt">Path</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="kt">String</span>
+<span class="w">  </span><span class="n">writeFile</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">Path</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">Content</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="nb">()</span>
+<span class="w">  </span><span class="n">exec</span><span class="w">      </span><span class="ow">::</span><span class="w"> </span><span class="kt">Command</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">Timeout</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="p">(</span><span class="kt">ExitCode</span><span class="p">,</span><span class="w"> </span><span class="kt">Stdout</span><span class="p">,</span><span class="w"> </span><span class="kt">Stderr</span><span class="p">)</span>
+<span class="w">  </span><span class="n">ls</span><span class="w">        </span><span class="ow">::</span><span class="w"> </span><span class="kt">Path</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="p">[</span><span class="kt">Path</span><span class="p">]</span>
+
+<span class="c1">-- 3. 实验能力 (用于 A/B Test)</span>
+<span class="nf">interface</span><span class="w"> </span><span class="kt">Experiment</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="kr">where</span>
+<span class="w">  </span><span class="n">getVariant</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">ExperimentID</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="kt">Variant</span><span class="w"> </span><span class="c1">-- 返回 &#39;A&#39; 或 &#39;B&#39;</span>
+<span class="w">  </span><span class="n">trackGoal</span><span class="w">  </span><span class="ow">::</span><span class="w"> </span><span class="kt">ExperimentID</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">MetricValue</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="nb">()</span>
+</code></pre></div>
+
+<h3 id="32-monadapp">3.2 组合 Monad：<code>App</code></h3>
+<p>我们的 Agent 程序将运行在一个名为 <code>App</code> 的 Monad 中。它是所有这些能力的<strong>交集</strong>。</p>
+<blockquote>
+<p><strong>Rule of Thumb</strong>: 尽可能保持 Effect 粒度细小。不要定义一个巨大的 <code>AgentHelper</code> 接口，而是拆分为 <code>Reader</code>, <code>Writer</code>, <code>Shell</code> 等，这样方便测试时只 Mock 其中一部分。</p>
+</blockquote>
+<hr />
+<h2 id="4-kleisli">4. 第二层：Kleisli 箭头与逻辑编排</h2>
+<p>这是 Agent 的“大脑”。我们使用 Kleisli Arrow 将各个步骤串联起来。
+回想一下，Kleisli Arrow 的形状是 <code>a -&gt; m b</code>。</p>
+<h3 id="41-agent-the-state">4.1 定义 Agent 的状态 (The State)</h3>
+<p>Agent 在步骤之间流转时，需要携带状态。</p>
+<div class="codehilite"><pre><span></span><code><span class="kr">type</span><span class="w"> </span><span class="nx">AgentState</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">issue</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">          </span><span class="c1">// 原始需求</span>
+<span class="w">  </span><span class="nx">plan</span><span class="o">:</span><span class="w"> </span><span class="kt">PlanStep</span><span class="p">[];</span><span class="w">       </span><span class="c1">// 当前计划</span>
+<span class="w">  </span><span class="nx">history</span><span class="o">:</span><span class="w"> </span><span class="kt">ChatHistory</span><span class="p">;</span><span class="w">   </span><span class="c1">// 对话历史</span>
+<span class="w">  </span><span class="nx">filesChanged</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span><span class="w"> </span><span class="c1">// 修改过的文件列表</span>
+<span class="w">  </span><span class="nx">attemptCount</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span><span class="w">   </span><span class="c1">// 当前尝试次数</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<h3 id="42">4.2 核心流程箭头</h3>
+<p>我们将复杂的 Coding 任务拆解为四个原子箭头：</p>
+<ol>
+<li>
+<p><strong><code>planner</code></strong>: <code>AgentState -&gt; App AgentState</code>
+* 读取 <code>issue</code>，分析代码库，生成 <code>plan</code>。</p>
+</li>
+<li>
+<p><strong><code>coder</code></strong>: <code>AgentState -&gt; App AgentState</code>
+* 读取 <code>plan</code> 中的当前步骤，调用 <code>LLM</code> 生成代码，调用 <code>WorkSpace</code> 写入文件。</p>
+</li>
+<li>
+<p><strong><code>verifier</code></strong>: <code>AgentState -&gt; App AgentState</code>
+* 调用 <code>WorkSpace</code> 运行 linter 和 test。如果失败，更新 <code>history</code> 包含错误信息。</p>
+</li>
+<li>
+<p><strong><code>updater</code></strong>: <code>AgentState -&gt; App AgentState</code>
+* 根据 verify 的结果，决定是标记当前步骤完成，还是增加 <code>attemptCount</code> 重试。</p>
+</li>
+</ol>
+<h3 id="43-the-pipeline">4.3 组合管道 (The Pipeline)</h3>
+<p>利用 Kleisli 组合符 <code>&gt;=&gt;</code> (andThen)，我们将它们串成一个循环体。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- 单次迭代逻辑</span>
+<span class="nf">step</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">AgentState</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">App</span><span class="w"> </span><span class="kt">AgentState</span>
+<span class="nf">step</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="n">planner</span><span class="w"> </span><span class="o">&gt;=&gt;</span><span class="w"> </span><span class="n">coder</span><span class="w"> </span><span class="o">&gt;=&gt;</span><span class="w"> </span><span class="n">verifier</span><span class="w"> </span><span class="o">&gt;=&gt;</span><span class="w"> </span><span class="n">updater</span>
+
+<span class="c1">-- 递归执行直到完成或耗尽预算</span>
+<span class="nf">runLoop</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">AgentState</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">App</span><span class="w"> </span><span class="kt">AgentState</span>
+<span class="nf">runLoop</span><span class="w"> </span><span class="n">state</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">  </span><span class="n">newState</span><span class="w"> </span><span class="ow">&lt;-</span><span class="w"> </span><span class="n">step</span><span class="w"> </span><span class="n">state</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="n">isComplete</span><span class="p">(</span><span class="n">newState</span><span class="p">)</span><span class="w"> </span>
+<span class="w">     </span><span class="kr">then</span><span class="w"> </span><span class="n">return</span><span class="w"> </span><span class="n">newState</span>
+<span class="w">     </span><span class="kr">else</span><span class="w"> </span><span class="n">runLoop</span><span class="w"> </span><span class="n">newState</span><span class="w"> </span><span class="c1">-- 递归调用</span>
+</code></pre></div>
+
+<p>这里展示了 IO Monad 的威力：我们像写普通命令式代码一样组合逻辑，但 <code>step</code>、<code>planner</code> 等函数本身是纯函数，它们只返回“描述计算的值”。</p>
+<hr />
+<h2 id="5-middleware">5. 第三层：中间件 (Middleware) 与安全性</h2>
+<p>这是区分 Demo 和 Production 的关键层。我们不在 <code>runLoop</code> 里写 <code>if (loop_detected) break</code>，而是将 <code>runLoop</code> 包裹在中间件中。</p>
+<h3 id="51-loop-detection">5.1 Loop Detection 中间件</h3>
+<p><strong>原理</strong>：
+Coding Agent 容易陷入“盲目重试”——修改代码 -&gt; 测试失败 -&gt; 再次修改(相同代码) -&gt; 测试失败。</p>
+<p><strong>实现</strong>：
+我们需要一个 <code>Stateful Middleware</code>。它维护一个滑动窗口的 <strong>Action-Result Fingerprint</strong>。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// 伪代码：中间件高阶函数</span>
+<span class="kd">function</span><span class="w"> </span><span class="nx">withLoopDetection</span><span class="o">&lt;</span><span class="nx">T</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">  </span><span class="nx">action</span><span class="o">:</span><span class="w"> </span><span class="kt">Kleisli</span><span class="o">&lt;</span><span class="nx">State</span><span class="p">,</span><span class="w"> </span><span class="nx">T</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="nx">windowSize</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">5</span>
+<span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nx">Kleisli</span><span class="o">&lt;</span><span class="nx">State</span><span class="p">,</span><span class="w"> </span><span class="nx">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">inputState</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// 1. 获取当前环境的 Trace ID 或 Context</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">history</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">getExecutionHistory</span><span class="p">();</span><span class="w"> </span>
+
+<span class="w">    </span><span class="c1">// 2. 执行动作</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">action</span><span class="p">(</span><span class="nx">inputState</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// 3. 计算指纹</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">fingerprint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">hash</span><span class="p">({</span>
+<span class="w">      </span><span class="nx">action</span><span class="o">:</span><span class="w"> </span><span class="kt">inputState.currentAction</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">output</span><span class="o">:</span><span class="w"> </span><span class="kt">result.testOutput</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">result</span><span class="p">.</span><span class="nx">error</span>
+<span class="w">    </span><span class="p">});</span>
+
+<span class="w">    </span><span class="c1">// 4. 检测重复</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">countOccurrences</span><span class="p">(</span><span class="nx">history</span><span class="p">,</span><span class="w"> </span><span class="nx">fingerprint</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">3</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">       </span><span class="c1">// 触发熔断</span>
+<span class="w">       </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">LoopDetectedError</span><span class="p">(</span><span class="s2">&quot;Detected repetitive futile actions.&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">result</span><span class="p">;</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="52-ab-test">5.2 A/B Test 注入</h3>
+<p>A/B Test 可以在两个层面进行：</p>
+<ol>
+<li><strong>Prompt 层面</strong>：在 <code>coder</code> 箭头内部，调用 <code>Experiment.getVariant('prompt_strategy')</code>，根据返回是 'A' (COT) 还是 'B' (Direct) 选择不同的 Prompt 模板。</li>
+<li><strong>流程层面</strong>：在 <code>step</code> 组合时动态路由。</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- 动态管道构建</span>
+<span class="nf">buildPipeline</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">App</span><span class="w"> </span><span class="p">(</span><span class="kt">AgentState</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">App</span><span class="w"> </span><span class="kt">AgentState</span><span class="p">)</span>
+<span class="nf">buildPipeline</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">  </span><span class="n">variant</span><span class="w"> </span><span class="ow">&lt;-</span><span class="w"> </span><span class="n">getVariant</span><span class="w"> </span><span class="s">&quot;review_strategy&quot;</span>
+<span class="w">  </span><span class="kr">case</span><span class="w"> </span><span class="n">variant</span><span class="w"> </span><span class="kr">of</span>
+<span class="w">    </span><span class="s">&quot;strict&quot;</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">return</span><span class="w"> </span><span class="p">(</span><span class="n">planner</span><span class="w"> </span><span class="o">&gt;=&gt;</span><span class="w"> </span><span class="n">coder</span><span class="w"> </span><span class="o">&gt;=&gt;</span><span class="w"> </span><span class="n">strictVerifier</span><span class="p">)</span>
+<span class="w">    </span><span class="s">&quot;lax&quot;</span><span class="w">    </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">return</span><span class="w"> </span><span class="p">(</span><span class="n">planner</span><span class="w"> </span><span class="o">&gt;=&gt;</span><span class="w"> </span><span class="n">coder</span><span class="w"> </span><span class="o">&gt;=&gt;</span><span class="w"> </span><span class="n">basicVerifier</span><span class="p">)</span>
+</code></pre></div>
+
+<hr />
+<h2 id="6-interpreters">6. 第四层：解释器 (Interpreters)</h2>
+<p>解释器是 Effect 真正落地的地方。</p>
+<h3 id="61-the-production-runtime">6.1 生产环境解释器 (The Production Runtime)</h3>
+<ul>
+<li><strong>FileSystem</strong>: 映射到 Docker 容器内的 <code>docker exec fs_container ...</code>。</li>
+<li><strong>LLM</strong>: 调用 OpenAI/Anthropic API，并处理 Rate Limit。</li>
+<li><strong>Observability</strong>: 将日志发送到 Datadog/Jaeger。</li>
+</ul>
+<h3 id="62-the-replay-runtime">6.2 录制与回放解释器 (The Replay Runtime)</h3>
+<p>为了调试极其贵的 Agent 运行，我们需要“时光机”。</p>
+<ul>
+<li><strong>Record Mode</strong>: 在执行真实 IO 时，将 <code>(Function, Args) -&gt; Result</code> 序列化存入 JSON 文件。</li>
+<li><strong>Replay Mode</strong>: 拦截所有 Effect。当请求 <code>chat(msg)</code> 时，不联网，而是查阅 JSON 文件返回历史数据。</li>
+</ul>
+<blockquote>
+<p><strong>关键点</strong>：<code>Clock</code> 和 <code>Random</code> 也必须被 Mock/Replay，否则无法实现确定性复现。</p>
+</blockquote>
+<hr />
+<h2 id="7-frp-bridging-to-ui">7. 第五层：FRP 桥接 (Bridging to UI)</h2>
+<p>Agent 在服务端跑得欢，但用户看浏览器不能一直 loading。我们需要将 IO 执行过程“广播”出去。</p>
+<h3 id="71">7.1 事件总线设计</h3>
+<p>我们可以定义一个 <code>Event</code> 代数类型：</p>
+<div class="codehilite"><pre><span></span><code><span class="kr">type</span><span class="w"> </span><span class="nx">AgentEvent</span><span class="w"> </span>
+<span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Thinking&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">plan</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;ToolCall&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">tool</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">input</span><span class="o">:</span><span class="w"> </span><span class="kt">any</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;ToolOutput&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">output</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;TokenStream&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">chunk</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="c1">// 流式文字</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Error&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+
+<h3 id="72-io-stream">7.2 IO 到 Stream 的转换</h3>
+<p>我们在解释器层引入一个 <code>Subject</code> (来自 RxJS 或类似库)。</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">class</span><span class="w"> </span><span class="nx">StreamingInterpreter</span><span class="w"> </span><span class="k">implements</span><span class="w"> </span><span class="nx">LLM</span><span class="p">,</span><span class="w"> </span><span class="nx">WorkSpace</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">constructor</span><span class="p">(</span><span class="k">private</span><span class="w"> </span><span class="nx">eventBus</span><span class="o">:</span><span class="w"> </span><span class="kt">Subject</span><span class="o">&lt;</span><span class="nx">AgentEvent</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
+
+<span class="w">  </span><span class="k">async</span><span class="w"> </span><span class="nx">chat</span><span class="p">(</span><span class="nx">msgs</span><span class="o">:</span><span class="w"> </span><span class="kt">Message</span><span class="p">[])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">eventBus</span><span class="p">.</span><span class="nx">next</span><span class="p">({</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Thinking&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">plan</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Contacting LLM...&#39;</span><span class="w"> </span><span class="p">});</span>
+<span class="w">    </span><span class="c1">// ... 调用 LLM ...</span>
+<span class="w">    </span><span class="c1">// ... 收到 chunk ...</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">eventBus</span><span class="p">.</span><span class="nx">next</span><span class="p">({</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;TokenStream&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">chunk</span><span class="o">:</span><span class="w"> </span><span class="kt">chunk</span><span class="w"> </span><span class="p">});</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">async</span><span class="w"> </span><span class="nx">exec</span><span class="p">(</span><span class="nx">cmd</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">eventBus</span><span class="p">.</span><span class="nx">next</span><span class="p">({</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;ToolCall&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">tool</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;shell&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">input</span><span class="o">:</span><span class="w"> </span><span class="kt">cmd</span><span class="w"> </span><span class="p">});</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">realExec</span><span class="p">(</span><span class="nx">cmd</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">eventBus</span><span class="p">.</span><span class="nx">next</span><span class="p">({</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;ToolOutput&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">output</span><span class="o">:</span><span class="w"> </span><span class="kt">res.stdout</span><span class="w"> </span><span class="p">});</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">res</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>前端 UI 只需要订阅这个 <code>eventBus</code>，即可实时渲染“正在思考...”、“正在修改文件 A...”等状态。</p>
+<hr />
+<h2 id="8">8. 本章小结</h2>
+<p>通过本章的 <code>PolyGlotCoder</code> 案例，我们验证了：</p>
+<ol>
+<li><strong>复杂性管理</strong>：通过 IO Monad 和 DSL，我们将复杂的 Coding Agent 拆解为可管理、可测试的小块。</li>
+<li><strong>鲁棒性</strong>：Loop Detection 和 Timeout 不再是业务逻辑的负担，而是过 Middleware 统一治理。</li>
+<li><strong>可观测性</strong>：通过解释器模式，我们可以轻松实现 A/B 测试插桩和全量录制回放。</li>
+<li><strong>交互性</strong>：利用 FRP，我们打通了同步的 Agent 逻辑与异步的 UI 交互。</li>
+</ol>
+<p><strong>Rule of Thumb</strong>:</p>
+<blockquote>
+<p>如果你的 Agent 代码中充满了 <code>try-catch</code>、<code>if (config.isTest)</code> 或者手写的重试循环，说明你的抽象层级不够。<strong>把控制流变成 Effect，把环境变成 Interpreter。</strong></p>
+</blockquote>
+<hr />
+<h2 id="9">9. 练习题</h2>
+<h3 id="_1">基础题</h3>
+<details>
+<summary><strong>练习 11.1：实现简单的沙箱文件系统解释器 (Mock Interpreter)</strong></summary>
+<p><strong>题目</strong>：
+请用内存中的 <code>Map&lt;Path, Content&gt;</code> 实现 <code>WorkSpace</code> 接口。
+要求：</p>
+<ol>
+<li><code>readFile</code> 如果路径不存在应抛出明确的 Domain Error。</li>
+<li><code>exec</code> 对于 <code>ls</code> 命令应返回 Map 中的 keys。</li>
+</ol>
+<p><strong>Hint</strong>: 这展示了如何在不依赖真实 OS 的情况下测试 Agent 逻辑。</p>
+<details>
+<summary><strong>参考答案</strong></summary>
+<div class="codehilite"><pre><span></span><code><span class="c1">// 简单的内存文件系统解释器</span>
+<span class="kd">class</span><span class="w"> </span><span class="nx">InMemoryWorkSpace</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">private</span><span class="w"> </span><span class="nx">files</span><span class="o">:</span><span class="w"> </span><span class="kt">Map</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">string</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Map</span><span class="p">();</span>
+
+<span class="w">  </span><span class="k">async</span><span class="w"> </span><span class="nx">readFile</span><span class="p">(</span><span class="nx">path</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">files</span><span class="p">.</span><span class="nx">has</span><span class="p">(</span><span class="nx">path</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="sb">`FileNotFound: </span><span class="si">${</span><span class="nx">path</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">files</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="nx">path</span><span class="p">)</span><span class="o">!</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">async</span><span class="w"> </span><span class="nx">writeFile</span><span class="p">(</span><span class="nx">path</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">content</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">files</span><span class="p">.</span><span class="nx">set</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span><span class="w"> </span><span class="nx">content</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">async</span><span class="w"> </span><span class="nx">exec</span><span class="p">(</span><span class="nx">cmd</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">stdout</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">cmd</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s2">&quot;ls&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">stdout</span><span class="o">:</span><span class="w"> </span><span class="kt">Array.from</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">files</span><span class="p">.</span><span class="nx">keys</span><span class="p">()).</span><span class="nx">join</span><span class="p">(</span><span class="s2">&quot;\n&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">stdout</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;mock exec result&quot;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+</details>
+</details>
+<details>
+<summary><strong>练习 11.2：Kleisli 错误处理 (Error Handling)</strong></summary>
+<p><strong>题目</strong>：
+假设 <code>coder</code> 步骤可能会因为 Token 超限而失败。请修改 Kleisli 管道，使得：
+如果 <code>coder</code> 失败，自动回退到一个更简单的 <code>summarizer</code> 步骤（压缩上下文），然后再重试 <code>coder</code>。</p>
+<p><strong>Hint</strong>: 使用 <code>catchError</code> 或 <code>orElse</code> 组合子。结构类似于 <code>coder.orElse(summarizer &gt;=&gt; coder)</code>。</p>
+<details>
+<summary><strong>参考答案</strong></summary>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- 伪代码逻辑</span>
+<span class="nf">safeCoder</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">AgentState</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">App</span><span class="w"> </span><span class="kt">AgentState</span>
+<span class="nf">safeCoder</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="n">catchError</span><span class="w"> </span><span class="n">coder</span><span class="w"> </span><span class="n">handler</span>
+<span class="w">  </span><span class="kr">where</span>
+<span class="w">    </span><span class="n">handler</span><span class="w"> </span><span class="ne">error</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">      </span><span class="n">log</span><span class="w"> </span><span class="p">(</span><span class="s">&quot;Coder failed, summarizing context: &quot;</span><span class="w"> </span><span class="o">++</span><span class="w"> </span><span class="n">show</span><span class="w"> </span><span class="ne">error</span><span class="p">)</span>
+<span class="w">      </span><span class="c1">-- 组合：先压缩，再重试编码</span>
+<span class="w">      </span><span class="n">summarizer</span><span class="w"> </span><span class="o">&gt;=&gt;</span><span class="w"> </span><span class="n">coder</span><span class="w"> </span>
+</code></pre></div>
+
+</details>
+</details>
+<h3 id="_2">挑战题</h3>
+<details>
+<summary><strong>练习 11.3：实现 Time-Travel Debugger 的核心数据结构</strong></summary>
+<p><strong>题目</strong>：
+设计一个 JSON Schema，用于存储 Agent 的一次完整运行记录（Tape）。
+要求：</p>
+<ol>
+<li>必须能支持并发请求的录制（如果 Agent 并行调用了 3 个工具）。</li>
+<li>必须包含随机种子的状态。</li>
+<li>思考如何处理非确定性的时间戳（Clock Effect）。</li>
+</ol>
+<p><strong>Hint</strong>: 记录不是简单的 List，可能是一个以 <code>(StepID, EffectType, InputHash)</code> 为键的 Map。</p>
+<details>
+<summary><strong>参考答案</strong></summary>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;meta&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;agentVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2023-10-27T10:00:00Z&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;randomSeed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12345</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;interactions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;stepId&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;effect&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LLM.chat&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;inputHash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sha256-of-messages&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;output&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sure, I can help...&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;durationMs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1500</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;stepId&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;effect&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;WorkSpace.exec&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;cmd&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ls -la&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;output&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;exitCode&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;stdout&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;main.py\nREADME.md&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;mockedTime&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2023-10-27T10:00:05Z&quot;</span><span class="w"> </span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>关键设计</strong>：在 Replay 时，解释器不仅要匹配函数名，最好还要匹配 <code>inputHash</code>，以防止代码逻辑变更导致请求参数变化，从而错误地匹配了历史记录。</p>
+</details>
+</details>
+<details>
+<summary><strong>练习 11.4：Loop Detection 的“语义”判重</strong></summary>
+<p><strong>题目</strong>：
+Coding Agent 有时会修改代码，但改动仅仅是加了一个空格或换行。对于编译器来说这是不同的文件，但对于决 Bug 来说这是死循环。
+请设计一个 <code>SemanticLoopDetector</code>，它不比较文件 Hash，而是比较 AST（抽象语法树）或 Token 序列的相似度。</p>
+<p><strong>Hint</strong>: 你需要在 <code>WorkSpace</code> Effect 中增加一个 <code>diff(fileA, fileB)</code> 的能力，或者在中间件中解析代码。</p>
+<details>
+<summary><strong>参考答案</strong></summary>
+<p><strong>实现思路</strong>：</p>
+<ol>
+<li><strong>标准化（Normalization）</strong>：
+在计算 Hash 之前，对代码内容进行预处理：</li>
+</ol>
+<ul>
+<li>去除所有注释。</li>
+<li>去除所有空行和多余空格。</li>
+<li>(进阶) 重命名局部变量为 v1, v2... (Alpha-renaming)。</li>
+</ul>
+<ol start="2">
+<li><strong>中间件逻辑</strong>：</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="kd">function</span><span class="w"> </span><span class="nx">normalizeCode</span><span class="p">(</span><span class="nx">code</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// 简单正则去空行去空格</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">code</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/\s+/g</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39; &#39;</span><span class="p">).</span><span class="nx">trim</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="c1">// 在 Loop Detector 中</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">currentCodeHash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">sha256</span><span class="p">(</span><span class="nx">normalizeCode</span><span class="p">(</span><span class="nx">fileContent</span><span class="p">));</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">historyHashes</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="nx">currentCodeHash</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s2">&quot;Semantic Loop Detected: Code effectively unchanged.&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+</details>
+</details>
+<hr />
+<h2 id="10-gotchas">10. 常见陷阱与错误 (Gotchas)</h2>
+<h3 id="1-leaky-abstractions">1. 泄露的抽象 (Leaky Abstractions)</h3>
+<ul>
+<li><strong>现象</strong>：你的 DSL 定义了 <code>exec(cmd)</code>，但在业务逻辑里你写了 <code>exec('ls -la | grep "foo"')</code>。</li>
+<li><strong>问题</strong>：这在 Linux 上能跑，在 Windows 开发者的本地环境或者某些精简版 Docker 容器里会报错。</li>
+<li><strong>对策</strong>：<strong>DSL 应该更具语义化</strong>。定义 <code>listFiles(pattern)</code> 而不是依赖 Shell 命令。如果必须用 Shell，请在解释器层做 OS 判断和适配。</li>
+</ul>
+<h3 id="2-ab-test">2. A/B Test 的“幽灵变量”</h3>
+<ul>
+<li><strong>现象</strong>：你在解释器里根据 A/B 标记修改了 LLM 的 Temperature。但是这个 Temperature 的值没有被记录在 Trace 日志里。</li>
+<li><strong>后果</strong>：当你发现某组实验效果极差时，你无法复现，因为你只记录了 Prompt，没记录解释器偷偷注入的参数。</li>
+<li><strong>对策</strong>：<strong>Explicit Context</strong>。所有的配置变更（即使是解释器注入的）都应该显式地写入 <code>Metadata</code> 或 <code>Span Attributes</code> 中。</li>
+</ul>
+<h3 id="3-frp">3. 被吞掉的 FRP 错误</h3>
+<ul>
+<li><strong>现象</strong>：Agent 运行出错，UI 上却一直转圈圈。</li>
+<li><strong>原因</strong>：FRP Stream 的 <code>catchError</code> 处理不当，导致流意外终止（Completed），而不是发送 Error 事件给 UI。</li>
+<li><strong>对策</strong>：在 <code>flatMap</code> 内部捕获错误，并将其转换为 <code>type: 'Error'</code> 的值事件发送出去，而不是让整个 Stream 崩溃。</li>
+</ul>
+            </article>
+            
+            <nav class="page-nav"><a href="chapter10.html" class="nav-link prev">← Chapter 10 — 与 FRP 的关系：当 Agent 变成“事件流处理器” (chapter10.md)</a><a href="chapter12.html" class="nav-link next">Chapter 12 — 扩展阅读与路线图：通往类型安全与生产环境的彼岸 →</a></nav>
+        </main>
+    </div>
+</body>
+</html>
