@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>Chapter 14 — Search API + RAG：构建检索增强的 RAG Agent</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <nav class="tree-nav" role="tree">
+                    <div class="tree-item " >
+                        <a href="index.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">《用 IO Monad 搭建 LLM Agent：从 Kleisli 到事件建模与 FRP》目录（index.md）</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter1.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 1 — LLM Agent 的“抽象边界”：为什么从 IO Monad 出发</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter2.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 2 — IO Monad 速成：从概念到工程实现</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter3.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 3 — Kleisli Arrow：把“带 IO 的函数”当作可组合箭头</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter4.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 4 — Agent DSL：把工具、记忆与控制流做成“可解释的 effect”</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter5.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 5 — Runtime 与调度：从解释器到并发、取消与资源管理 (chapter5.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter6.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 6 — 事件建模：IO timeout、重试、退避、熔断与预算</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter7.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 7 — Coding Agent 的 Loop Detection：让 Agent 可终止、可解释</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter8.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 8 — A/B Test 与评估：把实验嵌进 IO/Kleisli 管道</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter9.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 9 — 可观测性：Trace/Span、日志、指标与可复现</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter10.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 10 — 与 FRP 的关系：当 Agent 变成“事件流处理器” (chapter10.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter11.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 11 — 综合案例：实现一个可插拔的 Coding Agent (chapter11.md)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter12.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 12 — 扩展阅读与路线图：通往类型安全与生产环境的彼岸</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="chapter13.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 13 — 附录：终极参考手册 (The Ultimate Reference)</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item active" >
+                        <a href="chapter14.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Chapter 14 — Search API + RAG：构建检索增强的 RAG Agent</span>
+                        </a>
+                    </div>
+                
+                    <div class="tree-item " >
+                        <a href="CLAUDE.html" class="tree-link">
+                            <span class="tree-icon">📄</span>
+                            <span class="tree-title">Untitled</span>
+                        </a>
+                    </div>
+                </nav>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <h1 id="chapter-14-search-api-rag-rag-agent">Chapter 14 — Search API + RAG：构建检索增强的 RAG Agent</h1>
+<h2 id="1">1. 开篇段落</h2>
+<p>在 Agent 的能力谱系中，<strong>检索增强生成（RAG）</strong> 占据着特殊的地位。如果说 Tool Use 是 Agent 的“手”，那么 Search/RAG 就是 Agent 的“眼”和“外脑”。</p>
+<p>与计算器或日历等确定性工具不同，搜索（Search）是一个<strong>高度不确定、高噪声且昂贵</strong>的 IO 过程。当你执行 <code>search("Apple")</code> 时，你可能得到水果，也可能得到科技公司；可能得到 404 页面，也可能得到 SEO 垃圾农场。此外，RAG 不仅仅是一次 API 调用，它通常是一个<strong>递归的知识获取回路（Knowledge Acquisition Loop）</strong>：查询 → 阅读 → 发现缺口 → 再查询。</p>
+<p>本章深入探讨如何将 RAG 流程中的各个环节——查询生成、并发检索、结果清洗、重排序（Rerank）、分块阅读、证据合成——建模为可组合的 <strong>Kleisli Arrows</strong>。我们将重点解决“搜索死循环”、“上下文污染”和“引用幻觉”等核心工程难题。</p>
+<p><strong>学习目标</strong>：</p>
+<ol>
+<li><strong>架构建模</strong>：将 RAG 拆解为 <code>Query -&gt; Search -&gt; Rank -&gt; Read -&gt; Synthesize</code> 的 Pipeline。</li>
+<li><strong>Effect 定义</strong>：定义 Search、Scrape、VectorDB 读写的 Algebra。</li>
+<li><strong>高级控制流</strong>：使用 Kleisli 组合实现 Multi-hop（多跳）检索和 Query Expansion（查询扩展）。</li>
+<li><strong>循环检测</strong>：基于语义向量的 Loop Detection，防止 Agent 在无效信息中空转。</li>
+<li><strong>可信约束</strong>：利用类型系统强制实现“无引用，不输出”。</li>
+</ol>
+<hr />
+<h2 id="2">2. 文字论述</h2>
+<h3 id="21-searchrag-agent">2.1 Search/RAG Agent 的定位与架构</h3>
+<p>普通的 LLM 是封闭系统，RAG Agent 是开放系统。这种开放性带来了巨大的状态空间复杂度。我们需将 RAG 视为一个<strong>动态的反馈控制系统</strong>，而不是线性的脚本。</p>
+<h4 id="211-the-rag-pipeline">2.1.1 典型架构流（The RAG Pipeline）</h4>
+<p>我们可以将 RAG 流程看作是一系列数据转换的组合：</p>
+<div class="codehilite"><pre><span></span><code>       [ User Goal ]
+            |
+            v
+    +------------------+
+    |  Planner/Reason  | &lt;---(1) 决定需要搜索什么
+    +------------------+
+            |
+            v
+     [ Query Generator ] ---(2) 生成多个查询变体 (Query Expansion)
+            |
+            v
+    +-------+-------+
+    | Parallel Exec | ---(3) 并发执行 IO: Google / Bing / VectorDB
+    +-------+-------+
+            |
+     (Raw Documents)
+            |
+            v
+    [ Scrubber/Filter ] ---(4) 清洗: 去重、去广告、黑名单过滤
+            |
+            v
+       [ Reranker ]     ---(5) 排序: Cross-Encoder 打分 (IO/GPU Bound)
+            |
+            v
+     [ Chunk Selector ] ---(6) 裁剪: 选取 Top-K 片段以适应 Context Window
+            |
+            v
+     [ Synthesizer ]    ---(7) 合成: 生成带引用的答案
+</code></pre></div>
+
+<p>在 IO Monad 的视角下，上述每一个方框都是一个函数 <code>a -&gt; m b</code>，我们可以用 <code>&gt;=&gt;</code> (Kleisli compose) 将它们串联起来。</p>
+<h3 id="22-search-effect-the-search-algebra">2.2 把 Search 当作 Effect (The Search Algebra)</h3>
+<p>首先，我们需要定义“搜索”在我们的系统里到底意味着什么。它不应耦合具体的供应商（Google/SerpApi），而应是一个抽象的代数接口。</p>
+<h4 id="221">2.2.1 类型定义</h4>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- 基础类型</span>
+<span class="kr">type</span><span class="w"> </span><span class="kt">Url</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kt">String</span>
+<span class="kr">type</span><span class="w"> </span><span class="kt">Snippet</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kt">String</span>
+<span class="kr">type</span><span class="w"> </span><span class="kt">Score</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kt">Float</span><span class="w"> </span><span class="c1">-- 0.0 to 1.0</span>
+
+<span class="c1">-- 文档模型</span>
+<span class="kr">data</span><span class="w"> </span><span class="kt">SearchResult</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kt">SearchResult</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">url</span><span class="w">   </span><span class="kt">:</span><span class="w"> </span><span class="kt">Url</span><span class="p">,</span>
+<span class="w">    </span><span class="n">title</span><span class="w"> </span><span class="kt">:</span><span class="w"> </span><span class="kt">String</span><span class="p">,</span>
+<span class="w">    </span><span class="n">body</span><span class="w">  </span><span class="kt">:</span><span class="w"> </span><span class="kt">String</span><span class="p">,</span><span class="w"> </span><span class="c1">-- 可能是摘要，也可能是全文</span>
+<span class="w">    </span><span class="n">meta</span><span class="w">  </span><span class="kt">:</span><span class="w"> </span><span class="kt">Map</span><span class="w"> </span><span class="kt">String</span><span class="w"> </span><span class="kt">String</span><span class="w"> </span><span class="c1">-- 发布时间、作者等</span>
+<span class="p">}</span>
+
+<span class="c1">-- 核心能力 (Algebra)</span>
+<span class="kr">class</span><span class="w"> </span><span class="kt">Monad</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="ow">=&gt;</span><span class="w"> </span><span class="kt">SearchAlgebra</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="kr">where</span>
+<span class="w">    </span><span class="c1">-- 基础搜索：可能超时，可能失败</span>
+<span class="w">    </span><span class="n">search</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">Query</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">Int</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="p">(</span><span class="kt">Either</span><span class="w"> </span><span class="kt">SearchError</span><span class="w"> </span><span class="p">[</span><span class="kt">SearchResult</span><span class="p">])</span>
+
+<span class="w">    </span><span class="c1">-- 获取详情：爬取网页全文</span>
+<span class="w">    </span><span class="n">scrape</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">Url</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="p">(</span><span class="kt">Either</span><span class="w"> </span><span class="kt">ScrapeError</span><span class="w"> </span><span class="kt">String</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">-- 向量检索：从私有知识库获取</span>
+<span class="w">    </span><span class="n">vectorSearch</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">Vector</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">Int</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="p">[</span><span class="kt">SearchResult</span><span class="p">]</span>
+</code></pre></div>
+
+<h4 id="222-search-m-effect">2.2.2 为什么 <code>search</code> 是 <code>m</code> (Effect)?</h4>
+<ol>
+<li><strong>Latency</strong>：搜索通常需要 1s+，需要异步处理。</li>
+<li><strong>Failure</strong>：网络波动、配额耗尽（429 Too Many Requests）。</li>
+<li><strong>Non-determinism</strong>：搜索引擎的排名算法随时在变，不可复现（除非录制回放）。</li>
+</ol>
+<h3 id="23-rag-io">2.3 RAG 的 IO 事件与异常建模</h3>
+<p>在 RAG 流程中，我们需要处理比普通 API 更复杂的“软故障”和“硬故障”。</p>
+<ul>
+<li><strong>硬故障 (Hard Failures)</strong>：</li>
+<li><code>Timeout</code>：搜索引擎未在规定时间内响应。</li>
+<li><code>QuotaExceeded</code>：API Key 没钱了。</li>
+<li>
+<p><em>处理策略</em>：使用 <code>CircuitBreaker</code> (熔断器) 和 <code>BackoffRetry</code> (指数退避重试)。</p>
+</li>
+<li>
+<p><strong>软故障 (Soft Failures / Data Events)</strong>：</p>
+</li>
+<li><code>EmptyResult</code>：搜了，但没结果。这<strong>不是异常</strong>，而是有效的数据状态。</li>
+<li><code>SpamDetected</code>：结果全是内容农场。</li>
+<li><code>StaleContent</code>：所有结果都是 3 年前的，无法回答“昨天发生了什么”。</li>
+<li><em>处理策略</em>：这些应建模为 <code>LogEvent</code> 或控制流的分支条件，触发 <code>QueryRewrite</code>。</li>
+</ul>
+<h3 id="24-query-kleisli">2.4 Query 生成策略：Kleisli 的串联与分叉</h3>
+<p>用户的问题通常不能直接拿去搜索。</p>
+<ul>
+<li>用户问：“特斯拉最近那个车怎么样？”</li>
+<li>直接搜：“特斯拉最近那个车” -&gt; 效果极差。</li>
+<li>需要转换：“特斯拉 Cybertruck 测评 2024”、“Model 3 Highland 驾驶体验”。</li>
+</ul>
+<p>这里涉及两种 Kleisli 模式：</p>
+<ol>
+<li>
+<p><strong>Step-by-Step (Sequential)</strong>:
+<code>analyzeUserIntent &gt;=&gt; generateKeywords &gt;=&gt; constructQuery</code></p>
+</li>
+<li>
+<p><strong>Fan-out (Parallel)</strong>:
+针对复杂问题，我们可能需要生成多个视角的 Query，并行搜索。</p>
+</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="c1">// TypeScript 伪代码：并发搜索 Effect</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">searchEffect</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">userQ</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nx">IO</span><span class="o">&lt;</span><span class="nx">Doc</span><span class="p">[]</span><span class="o">&gt;</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">generateQueries</span><span class="p">(</span><span class="nx">userQ</span><span class="p">)</span><span class="w"> </span><span class="c1">// IO&lt;Query[]&gt;</span>
+<span class="w">    </span><span class="p">.</span><span class="nx">flatMap</span><span class="p">(</span><span class="nx">queries</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span>
+<span class="w">       </span><span class="c1">// Parallel Traverse: 对每个 query 执行 search，然后合并结果</span>
+<span class="w">       </span><span class="nx">IO</span><span class="p">.</span><span class="nx">parTraverse</span><span class="p">(</span><span class="nx">queries</span><span class="p">,</span><span class="w"> </span><span class="nx">q</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">searchService</span><span class="p">.</span><span class="nx">search</span><span class="p">(</span><span class="nx">q</span><span class="p">))</span>
+<span class="w">    </span><span class="p">)</span>
+<span class="w">    </span><span class="p">.</span><span class="nx">map</span><span class="p">(</span><span class="nx">results</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">flatten</span><span class="p">(</span><span class="nx">results</span><span class="p">));</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="25">2.5 结果处理：去重、清洗与重排序</h3>
+<p>这是 RAG Pipeline 中最容易被忽视但最重要的环节。垃圾进，垃圾出（Garbage In, Garbage Out）。</p>
+<h4 id="251-deduplication">2.5.1 去重 (Deduplication)</h4>
+<p>搜索结果往往包含大量冗余（不同 URL 指向同一篇文章，或转载）。</p>
+<ul>
+<li><strong>URL Normalization</strong>：移除 <code>utm_source</code> 等参数。</li>
+<li><strong>Content Hashing</strong>：计算 Snippet 的 MinHash 或 SimHash。</li>
+<li>这通常是一个<strong>纯函数</strong>步骤：<code>List Doc -&gt; List Doc</code>。</li>
+</ul>
+<h4 id="252-reranking">2.5.2 重排序 (Reranking)</h4>
+<p>搜索引擎的 Top 10 是基于 SEO 的，RAG 需要的是基于“语义相关性”的。
+<code>Rerank</code> 是一个 Effect，因为它可能调用昂贵的 BERT/Cross-Encoder 模型。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- Rerank 接口</span>
+<span class="nf">rerank</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">Query</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="p">[</span><span class="kt">SearchResult</span><span class="p">]</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="p">[</span><span class="kt">SearchResult</span><span class="p">]</span>
+</code></pre></div>
+
+<p><strong>Rule of Thumb</strong>:</p>
+<ul>
+<li>搜索阶段追求 <strong>Recall (召回率)</strong>：拿回 50-100 个文档。</li>
+<li>排序阶段追求 <strong>Precision (精确率)</strong>：筛选出 5-10 个最相关的给 LLM。</li>
+</ul>
+<h3 id="26-reading-extraction">2.6 阅读与证据抽取 (Reading &amp; Extraction)</h3>
+<p>LLM 的 Context Window 是昂贵的。我们不能把整个网页塞进去。
+我们需要一个 <strong>Selector</strong> 策略：</p>
+<ol>
+<li><strong>Sliding Window</strong>：将长文切片。</li>
+<li><strong>Extraction</strong>：让一个小模型（或廉价模型）先读一遍：“这篇文章里有没有提到 X？如果有，提取那一段。”</li>
+</ol>
+<p>这个过程可以建模为 <code>filter</code> 操作：
+<code>docs.traverse(doc =&gt; analyze(doc, query))</code></p>
+<h3 id="27-loop-detection">2.7 循环检测 (Loop Detection) 与 预算控制</h3>
+<p>这是 RAG Agent 最大的风险点：<strong>思维反刍（Rumination）</strong>。
+Agent 可能会陷入：</p>
+<ul>
+<li>搜索 "A" -&gt; 没找到 -&gt; 搜索 "A 的同义词" -&gt; 没找到 -&gt; 搜索 "A 的英文" ...</li>
+<li>或者在两个相关概念间反复跳跃。</li>
+</ul>
+<h4 id="271-detectloop-effect">2.7.1 实现 <code>DetectLoop</code> Effect</h4>
+<p>我们需要维护一个<strong>语义历史记录</strong>。</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">interface</span><span class="w"> </span><span class="nx">HistoryEntry</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">query</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">embedding</span><span class="o">:</span><span class="w"> </span><span class="kt">Vector</span><span class="p">;</span><span class="w"> </span><span class="c1">// 预计算的向量</span>
+<span class="w">  </span><span class="nx">resultCount</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">detectLoop</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">history</span><span class="o">:</span><span class="w"> </span><span class="kt">HistoryEntry</span><span class="p">[],</span><span class="w"> </span><span class="nx">newQuery</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nx">IO</span><span class="o">&lt;</span><span class="nx">Decision</span><span class="o">&gt;</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">embed</span><span class="p">(</span><span class="nx">newQuery</span><span class="p">).</span><span class="nx">map</span><span class="p">(</span><span class="nx">newVec</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// 检查语义相似度 &gt; 0.9 的历史查询</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">similar</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">history</span><span class="p">.</span><span class="nx">filter</span><span class="p">(</span><span class="nx">h</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">cosineSim</span><span class="p">(</span><span class="nx">h</span><span class="p">.</span><span class="nx">embedding</span><span class="p">,</span><span class="w"> </span><span class="nx">newVec</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">0.9</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">similar</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">2</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="nx">Decision</span><span class="p">.</span><span class="nx">Abort</span><span class="p">(</span><span class="s2">&quot;Stuck in semantic loop&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">similar</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">similar</span><span class="p">[</span><span class="mf">0</span><span class="p">].</span><span class="nx">resultCount</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="p">)</span><span class="w"> </span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">Decision</span><span class="p">.</span><span class="nx">Refine</span><span class="p">(</span><span class="s2">&quot;Previous similar query yielded nothing&quot;</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">Decision</span><span class="p">.</span><span class="nx">Proceed</span><span class="p">;</span>
+<span class="w">  </span><span class="p">})</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h4 id="272-budget">2.7.2 Budget 驱动的终止</h4>
+<p>RAG 必须是<strong>有预算的</strong>。</p>
+<ul>
+<li><code>MaxCalls</code>: 最多搜索 10 次。</li>
+<li><code>TokenLimit</code>: 最多读取 50k tokens。</li>
+<li><code>TimeLimit</code>: 最多运行 30 秒。</li>
+</ul>
+<p>一旦 Budget 耗尽，Pipeline 必须强制通过 <code>Left</code> 或特定状态跳转到 <code>Synthesize</code> 阶段：“基于目前已有的信息，我只能回答到这里...”。</p>
+<h3 id="28-citations">2.8 可信与安全：引用 (Citations)</h3>
+<p>在 RAG 中，<strong>幻觉（Hallucination）</strong> 是头号敌人。
+我们可以通过<strong>型系统</strong>来缓解这个问题。</p>
+<p>要求 LLM 的输出必须符合结构：</p>
+<div class="codehilite"><pre><span></span><code><span class="kr">data</span><span class="w"> </span><span class="kt">Claim</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kt">Claim</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">statement</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">String</span><span class="p">,</span>
+<span class="w">    </span><span class="n">sourceId</span><span class="w">  </span><span class="ow">::</span><span class="w"> </span><span class="kt">DocId</span><span class="p">,</span><span class="w">  </span><span class="c1">-- 必须指向 Context 中存在的 ID</span>
+<span class="w">    </span><span class="n">quote</span><span class="w">     </span><span class="ow">::</span><span class="w"> </span><span class="kt">String</span><span class="w">  </span><span class="c1">-- 必须是原文的精确子串</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>在 Runtime，我们可以编写一个 <strong>Verifier</strong>：</p>
+<ol>
+<li>检查 <code>sourceId</code> 是否在检索到的文档列表中。</li>
+<li>检查 <code>quote</code> 是否真的存在于该文档中（模糊匹配）。</li>
+<li>检查 <code>statement</code> 是否被 <code>quote</code> 逻辑蕴含（NLI 模型）。</li>
+</ol>
+<p>如果检查失败，这不仅是一个 Log，而是一个<strong>反馈信号</strong>，可以让 Agent 自我修正（Self-Correction）。</p>
+<h3 id="29-frp">2.9 与 FRP 的关系：流式透明化</h3>
+<p>RAG 过程很慢。用户需要知道发生了什么。
+利用 FRP（Functional Reactive Programming），我们将 RAG 建模为事件流：</p>
+<ul>
+<li><code>Stream&lt;Event&gt;</code>:</li>
+<li><code>Thinking: "Analysing user query..."</code></li>
+<li><code>Action: "Searching Google for 'React 19 release date'..."</code></li>
+<li><code>Data: "Found 5 relevant pages."</code></li>
+<li><code>Action: "Reading 'React Blog'..."</code></li>
+<li><code>Progress: "Reading 3/5 docs..."</code></li>
+<li><code>Output: "React 19 was released on..."</code></li>
+</ul>
+<p>这种模式下，UI 只是这个 Stream 的消费者。IO Monad 负责执行，FRP 负责将执行过程广播出去。</p>
+<hr />
+<h2 id="3">3. 本章小结</h2>
+<ul>
+<li><strong>RAG 是 IO 密集型管道</strong>：它由查询生成、搜索执行、清洗、重排序、阅读、合成六大环节组成。</li>
+<li><strong>Ranking 是关键 Effect</strong>：不要只依赖搜索引擎的原始排序，必须在本地（或通过模型 API）进行语义重排序（Rerank）。</li>
+<li><strong>语义循环检测</strong>：传统的字符串匹配无法检测“换词搜索”的死循环，必须引入 Embedding 相似度检测。</li>
+<li><strong>引用即类型约束</strong>：通过强制要求输出包含原文引用（Quote）和来源 ID，并将验证逻辑纳入 Pipeline，可以大幅降低幻觉。</li>
+<li><strong>拥抱不确定性</strong>：搜索可能为空、超时或被污染。Agent 必须具备处理 <code>Either Error EmptyResult</code> 的分支逻辑，而不是假设总能搜到答案。</li>
+</ul>
+<hr />
+<h2 id="4">4. 练习题</h2>
+<h3 id="_1">基础题</h3>
+<details>
+<summary><strong>习题 1：实现基础 Search Algebra</strong></summary>
+<p><strong>题目</strong>：定义一个简单的 <code>Search</code> 接口，并实现一个 <code>MockSearchInterpreter</code>。该解释器包含一个预定义的内存数据库（Map Query [Doc]）。当查询命中时返回文档，未命中时返回空列表，当查询为 "error" 时模拟网络异常。</p>
+<p><strong>Hint</strong>：</p>
+<ul>
+<li>使用 <code>Map&lt;String, List&lt;Document&gt;&gt;</code> 作为 Mock 数据源。</li>
+<li>返回值类型应为 <code>IO&lt;Either&lt;Error, List&lt;Document&gt;&gt;&gt;</code>。</li>
+</ul>
+<p><strong>参考答案</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// TypeScript 示例</span>
+<span class="kr">type</span><span class="w"> </span><span class="nx">Doc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">title</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w"> </span><span class="nx">content</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">};</span>
+<span class="kr">type</span><span class="w"> </span><span class="nx">SearchResult</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">kind</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Success&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">docs</span><span class="o">:</span><span class="w"> </span><span class="kt">Doc</span><span class="p">[]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">kind</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Error&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">msg</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">};</span>
+
+<span class="kd">class</span><span class="w"> </span><span class="nx">MockSearch</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">private</span><span class="w"> </span><span class="nx">db</span><span class="o">:</span><span class="w"> </span><span class="kt">Record</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">Doc</span><span class="p">[]</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">  </span><span class="kr">constructor</span><span class="p">(</span><span class="nx">db</span><span class="o">:</span><span class="w"> </span><span class="kt">Record</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">Doc</span><span class="p">[]</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">db</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">db</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">  </span><span class="nx">search</span><span class="p">(</span><span class="nx">query</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="nx">SearchResult</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Promise</span><span class="p">(</span><span class="nx">resolve</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="c1">// 模拟网络延迟</span>
+<span class="w">      </span><span class="nx">setTimeout</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">query</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;error&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="nx">resolve</span><span class="p">({</span><span class="w"> </span><span class="nx">kind</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Error&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">msg</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Network Timeout&#39;</span><span class="w"> </span><span class="p">});</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="nx">resolve</span><span class="p">({</span><span class="w"> </span><span class="nx">kind</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Success&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">docs</span><span class="o">:</span><span class="w"> </span><span class="kt">this.db</span><span class="p">[</span><span class="nx">query</span><span class="p">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="p">});</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">      </span><span class="p">},</span><span class="w"> </span><span class="mf">100</span><span class="p">);</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+</details>
+<details>
+<summary><strong>习题 2：并发搜索引擎 (Parallel IO)</strong></summary>
+<p><strong>题目</strong>：假设你有两个搜索源 <code>searchGoogle(q)</code> 和 <code>searchBing(q)</code>。请编写一个函数 <code>searchUnified(q)</code>，它：</p>
+<ol>
+<li><strong>并发</strong>调用这两个搜索源。</li>
+<li>如果有任意一个失败，忽略它，只返回另一个的结果。</li>
+<li>如果都成功，合并结果并去重（根据 URL）。</li>
+<li>如果都失败，返回错误。</li>
+</ol>
+<p><strong>Hint</strong>：使用 <code>Promise.allSettled</code> (JS) 或 <code>race</code>/<code>parMap</code> (FP)。需要处理 Partial Failure。</p>
+<p><strong>参考答案</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// 伪代码思路</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">searchUnified</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">q</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// 1. 并发执行</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">res1</span><span class="p">,</span><span class="w"> </span><span class="nx">res2</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nb">Promise</span><span class="p">.</span><span class="nx">allSettled</span><span class="p">([</span><span class="nx">google</span><span class="p">.</span><span class="nx">search</span><span class="p">(</span><span class="nx">q</span><span class="p">),</span><span class="w"> </span><span class="nx">bing</span><span class="p">.</span><span class="nx">search</span><span class="p">(</span><span class="nx">q</span><span class="p">)]);</span>
+
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">allDocs</span><span class="o">:</span><span class="w"> </span><span class="kt">Doc</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+
+<span class="w">  </span><span class="c1">// 2. 收集成功的结果</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">res1</span><span class="p">.</span><span class="nx">status</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;fulfilled&#39;</span><span class="p">)</span><span class="w"> </span><span class="nx">allDocs</span><span class="p">.</span><span class="nx">push</span><span class="p">(...</span><span class="nx">res1</span><span class="p">.</span><span class="nx">value</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">res2</span><span class="p">.</span><span class="nx">status</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;fulfilled&#39;</span><span class="p">)</span><span class="w"> </span><span class="nx">allDocs</span><span class="p">.</span><span class="nx">push</span><span class="p">(...</span><span class="nx">res2</span><span class="p">.</span><span class="nx">value</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// 3. 判空 (如果两个都挂了，且没有结果)</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">allDocs</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">res1</span><span class="p">.</span><span class="nx">status</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;rejected&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">res2</span><span class="p">.</span><span class="nx">status</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;rejected&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s2">&quot;All providers failed&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="c1">// 4. 去重 (Lodash uniqBy)</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">_</span><span class="p">.</span><span class="nx">uniqBy</span><span class="p">(</span><span class="nx">allDocs</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;url&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+</details>
+<details>
+<summary><strong>习题 3：简单的重试策略 (Retry Effect)</strong></summary>
+<p><strong>题目</strong>：为搜索函数添加重试逻辑。要求实现 <code>retryWithBackoff</code> 高阶函数：</p>
+<ul>
+<li>最多重试 3 次。</li>
+<li>每次重试间隔指数增长 (1s, 2s, 4s)。</li>
+<li>只对特定的错误类型（如 "Timeout", "503"）重试，对 "400 Bad Request" 不重试。</li>
+</ul>
+<p><strong>Hint</strong>：这是一个递归函数，接收一个 <code>IO</code> 动作和一个 <code>Policy</code>。</p>
+<p><strong>参考答案</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">retry</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">T</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">  </span><span class="nx">fn</span><span class="o">:</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="nx">T</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="nx">attempts</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="nx">delay</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span>
+<span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="nx">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">fn</span><span class="p">();</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">attempts</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mf">1</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="nx">isRetryable</span><span class="p">(</span><span class="nx">error</span><span class="p">))</span><span class="w"> </span><span class="k">throw</span><span class="w"> </span><span class="nx">error</span><span class="p">;</span>
+<span class="w">    </span><span class="k">await</span><span class="w"> </span><span class="nx">sleep</span><span class="p">(</span><span class="nx">delay</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">retry</span><span class="p">(</span><span class="nx">fn</span><span class="p">,</span><span class="w"> </span><span class="nx">attempts</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="nx">delay</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mf">2</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+</details>
+<h3 id="_2">挑战题</h3>
+<details>
+<summary><strong>习题 4：实现 Multi-hop Reasoning 的 Kleisli 管道</strong></summary>
+<p><strong>题目</strong>：构建一个能够回答“Who is the CEO of the company that created ChatGPT?”的 Agent。
+这需要两步推理：</p>
+<ol>
+<li>Query: "Who created ChatGPT?" -&gt; Result: "OpenAI".</li>
+<li>Query: "Who is CEO of OpenAI?" -&gt; Result: "Sam Altman".
+请设计一个 <code>loop</code> 函数，它接收 <code>UserQuery</code>，执行搜索，让 LLM 判断是“得到了最终答案”还是“需要搜集更多信息（生成新 Query）”。如果是后者，递归调用。</li>
+</ol>
+<p><strong>Hint</strong>：
+定义一个 Sum Type: <code>Result = FinalAnswer String | NeedMoreInfo String</code>.
+函数签名为 <code>step :: Context -&gt; IO Result</code>。
+使用 <code>MonadRec</code> 或简单的递归。</p>
+<p><strong>参考答案</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- 伪代码</span>
+<span class="kr">data</span><span class="w"> </span><span class="kt">StepResult</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kt">Answer</span><span class="w"> </span><span class="kt">String</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kt">NewQuery</span><span class="w"> </span><span class="kt">String</span>
+
+<span class="nf">step</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">Context</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">IO</span><span class="w"> </span><span class="kt">StepResult</span>
+<span class="nf">step</span><span class="w"> </span><span class="n">ctx</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">  </span><span class="c1">-- LLM 决定下一步</span>
+<span class="w">  </span><span class="n">decision</span><span class="w"> </span><span class="ow">&lt;-</span><span class="w"> </span><span class="n">llmDecide</span><span class="w"> </span><span class="n">ctx</span>
+<span class="w">  </span><span class="kr">case</span><span class="w"> </span><span class="n">decision</span><span class="w"> </span><span class="kr">of</span>
+<span class="w">    </span><span class="s">&quot;SEARCH&quot;</span><span class="kt">:</span><span class="w"> </span><span class="n">q</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">       </span><span class="n">docs</span><span class="w"> </span><span class="ow">&lt;-</span><span class="w"> </span><span class="n">search</span><span class="w"> </span><span class="n">q</span>
+<span class="w">       </span><span class="kr">let</span><span class="w"> </span><span class="n">newCtx</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="n">appendDocs</span><span class="w"> </span><span class="n">ctx</span><span class="w"> </span><span class="n">docs</span>
+<span class="w">       </span><span class="n">step</span><span class="w"> </span><span class="n">newCtx</span><span class="w"> </span><span class="c1">-- 递归 (注意: 真实实现需要 Loop Detect 和 Max Depth)</span>
+<span class="w">    </span><span class="s">&quot;ANSWER&quot;</span><span class="kt">:</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="n">return</span><span class="w"> </span><span class="p">(</span><span class="kt">Answer</span><span class="w"> </span><span class="n">ans</span><span class="p">)</span>
+
+<span class="nf">runAgent</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">String</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">IO</span><span class="w"> </span><span class="kt">String</span>
+<span class="nf">runAgent</span><span class="w"> </span><span class="n">query</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="n">step</span><span class="w"> </span><span class="p">(</span><span class="n">initCtx</span><span class="w"> </span><span class="n">query</span><span class="p">)</span>
+</code></pre></div>
+
+</details>
+<details>
+<summary><strong>习题 5：基于语义向量的 Loop Detection</strong></summary>
+<p><strong>题目</strong>：实现 2.7 节描述的 <code>detectLoop</code>。
+你需要模拟一个 <code>embed(text)</code> 函数（返回 float 数组）。
+如果在历史记录中发现最近 5 步内有 &gt;0.95 相似度的 Query，或者连续 3 次搜索结果（URL 集合）重叠度 &gt; 80%，则触发中断。</p>
+<p><strong>Hint</strong>：
+Jaccard Similarity 用于集合比较。Cosine Similarity 用于向量比较。
+状态 <code>State History</code> 需要在 IO 中传递。</p>
+<p><strong>参考答案</strong>：
+<strong>核心逻辑</strong>：</p>
+<ol>
+<li><strong>State</strong>: <code>List&lt;{query: String, vec: Vector, urls: Set&lt;Url&gt;}&gt;</code></li>
+<li><strong>Check 1 (Vector)</strong>: <code>dotProduct(currentVec, oldVec) &gt; 0.95</code></li>
+<li><strong>Check 2 (Jaccard)</strong>: <code>intersection(currUrls, oldUrls).size / union(...).size &gt; 0.8</code></li>
+<li><strong>Effect</strong>: 如果检测到，抛出 <code>LoopDetectedError</code> 或者返回一个特殊的 <code>StopInstruction</code> 给 Planner。</li>
+</ol>
+</details>
+<details>
+<summary><strong>习题 6：Citation Verifier (引用验证器)</strong></summary>
+<p><strong>题目</strong>：编写一个函数 <code>verifyCitations(answer: String, sources: Doc[]) -&gt; IO VerifiedAnswer</code>。
+该函数需要：</p>
+<ol>
+<li>解析 <code>answer</code> 中的引用标记 <code>[1]</code>, <code>[2]</code>。</li>
+<li>提取引用上下文的一句话。</li>
+<li>调用 LLM (Judge) 检查：原文 <code>sources[1]</code> 是否支持该句话的断言。</li>
+<li>如果不支持，移除该引用或标记为“未证实”。</li>
+</ol>
+<p><strong>Hint</strong>：这是一个 <code>Map</code> 操作，把 <code>RawAnswer</code> 映射为 <code>VerifiedAnswer</code>。这也是一种 RAG 的 "Post-processing" effect。</p>
+<p><strong>参考答案</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// 伪代码</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">verify</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">ans</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">docs</span><span class="o">:</span><span class="w"> </span><span class="kt">Doc</span><span class="p">[])</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">claims</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">extractClaims</span><span class="p">(</span><span class="nx">ans</span><span class="p">);</span><span class="w"> </span><span class="c1">// 解析出句子和引用号</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">verifications</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nb">Promise</span><span class="p">.</span><span class="nx">all</span><span class="p">(</span><span class="nx">claims</span><span class="p">.</span><span class="nx">map</span><span class="p">(</span><span class="k">async</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">sourceText</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">docs</span><span class="p">[</span><span class="nx">c</span><span class="p">.</span><span class="nx">refId</span><span class="p">].</span><span class="nx">text</span><span class="p">;</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">isSupported</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">llmJudge</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">statement</span><span class="p">,</span><span class="w"> </span><span class="nx">sourceText</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="nx">c</span><span class="p">,</span><span class="w"> </span><span class="nx">verified</span><span class="o">:</span><span class="w"> </span><span class="kt">isSupported</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}));</span>
+
+<span class="w">  </span><span class="c1">// 重组答案，去掉验证失败的引用</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">reconstruct</span><span class="p">(</span><span class="nx">ans</span><span class="p">,</span><span class="w"> </span><span class="nx">verifications</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+</details>
+<hr />
+<h2 id="5-gotchas">5. 常见陷阱与错误 (Gotchas)</h2>
+<h3 id="51-keyword-oscillation">5.1 关键词震荡 (Keyword Oscillation)</h3>
+<ul>
+<li><strong>现象</strong>：Agent 搜索 "Python tutorial" -&gt; 觉得太浅 -&gt; 搜索 "Python guide" -&gt; 觉得太浅 -&gt; 搜索 "Python tutorial"。</li>
+<li><strong>原因</strong>：Planner 没记住自己搜过什么，或者对“同义词”没有概念。</li>
+<li><strong>解决</strong>：必须使用 <strong>Embedding</strong> 来对比历史 Query，而不是字符串匹配。强制 Agent 在重试时“改变搜索策略”（如：从搜“是什么”改为搜“怎么做”）。</li>
+</ul>
+<h3 id="52-knowledge-cutoff">5.2 知识截止时间 (Knowledge Cutoff) 混淆</h3>
+<ul>
+<li><strong>现象</strong>：模型内部训练数是 2023 年的，RAG 搜到了 2024 年的数据。模型可能会根据自己的内部知识“纠正”RAG 的正确结果（产生幻觉）。</li>
+<li><strong>解决</strong>：在 System Prompt 中强力催眠：“你对 X 一无所知，必须完全依赖提供的 Context 回答。” 或使用 <strong>Context-Only Decoding</strong> 技术。</li>
+</ul>
+<h3 id="53">5.3 错误的上下文拼接</h3>
+<ul>
+<li><strong>现象</strong>：直接把 HTML 扔进 Prompt，导致 Token 浪费在 <code>&lt;div&gt;</code>, <code>&lt;nav&gt;</code> 上；或者截断时切断了关键句子。</li>
+<li><strong>解决</strong>：</li>
+<li>使用专门的 HTML-to-Text 工具（如 <code>readability.js</code>）。</li>
+<li><strong>Overlapping Window</strong>：切分时保留 10% 的重叠，防止关键信息刚好在切分点上。</li>
+</ul>
+<h3 id="54">5.4 忽视“负反馈”</h3>
+<ul>
+<li><strong>现象</strong>：搜索返回空结果，Agent 直接崩溃或瞎编。</li>
+<li><strong>解决</strong>：<strong>“没有结果”也是极其重要的信息</strong>。它应该触发 Agent 的反思：“我是不是搜错词了？还是这个问题本身就是错的？” 这需要在 Kleisli 链中处理 <code>Either Empty Result</code> 的情况。</li>
+</ul>
+            </article>
+            
+            <nav class="page-nav"><a href="chapter13.html" class="nav-link prev">← Chapter 13 — 附录：终极参考手册 (The Ultimate Reference)</a><a href="CLAUDE.html" class="nav-link next">Untitled →</a></nav>
+        </main>
+    </div>
+</body>
+</html>
