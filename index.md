@@ -211,8 +211,42 @@
 
 ---
 
-## 附录（chapter13.md）
+### 附录（chapter13.md）
 A.1 术语表：Monad、Kleisli、Interpreter、Effect、FRP…  
 A.2 类型签名速查表：timeout/retry/race/withSpan…  
 A.3 常见坑：把日志写进业务输出、把异常当控制流、不可回放随机性  
 A.4 练习题与参考答案索引（按章节编号）
+
+
+### Chapter 14 — Search API + RAG：构建检索增强的 RAG Agent（chapter14.md）
+14.1 Search/RAG agent 的定位：从“工具调用”到“知识获取回路”  
+14.2 典型架构：Query → Search → Rank → Read → Synthesize → Cite  
+14.3 把 Search 当 effect：`Search : SearchReq -> m SearchResp`  
+14.4 RAG 的 IO 事件：  
+- 查询超时/部分结果  
+- 结果重复/污染（SEO spam、模板站）  
+- 引用缺失与“无法证明”  
+14.5 Query 生成策略：single-shot vs multi-hop；Kleisli 串联  
+14.6 结果去重与聚类：同源/近重复、canonical URL、内容哈希  
+14.7 Ranking 与 rerank：  
+- 规则（BM25/域名白名单）  
+- 模型 rerank（cross-encoder / LLM judge）  
+- “可解释评分”作为日志事件  
+14.8 Reading 策略：  
+- chunking 与窗口  
+- 证据抽取（claim-evidence）  
+- 反证搜索（disconfirming evidence）  
+14.9 可信与安全：  
+- 引用约束（每条关键断言都要可追溯证据）  
+- 可信优先（站点质量、作者、时效）  
+- 防提示注入（网页内容作为不可信输入）  
+14.10 “检索回路”的 loop detection：  
+- 搜索词震荡（query drift）  
+- 永远找不到证据时的终止条件  
+- budget 驱动的“停止检索，转为不确定回答”  
+14.11 A/B 与评估：  
+- retrieval 指标（recall@k、nDCG）  
+- 端到端指标（answer accuracy、citation precision）  
+- 离线回放：固定搜索结果集 vs 在线实时搜索  
+14.12 与 FRP：流式展示搜索过程（query/结果/证据/引用）  
+14.13 章节练习：写一个“带引用约束”的 RAG agent 最小实现
