@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>Chapter 3 — Kleisli Arrow：把“带 IO 的函数”当作可组合箭头</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <ul class="nav-list"><li class=""><a href="index.html">《用 IO Monad 搭建 LLM Agent：从 Kleisli 到事件建模与 FRP》目录（index.md）</a></li><li class=""><a href="chapter1.html">Chapter 1 — LLM Agent 的“抽象边界”：为什么从 IO Monad 出发</a></li><li class=""><a href="chapter2.html">Chapter 2 — IO Monad 速成：从概念到工程实现</a></li><li class="active"><a href="chapter3.html">Chapter 3 — Kleisli Arrow：把“带 IO 的函数”当作可组合箭头</a></li><li class=""><a href="chapter4.html">Chapter 4 — Agent DSL：把工具、记忆与控制流做成“可解释的 effect”</a></li><li class=""><a href="CLAUDE.html">Untitled</a></li></ul>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <h1 id="chapter-3-kleisli-arrow-io">Chapter 3 — Kleisli Arrow：把“带 IO 的函数”当作可组合箭头</h1>
+<h2 id="1-agent">1. 开篇段落：Agent 开发中的“胶水危机”</h2>
+<p>在构建 LLM Agent 时，我们本质上是在编排一系列<strong>不确定</strong>且<strong>有副作用</strong>的操作：</p>
+<ul>
+<li>用户输入  检索向量库（可能失败、网络延迟）</li>
+<li>构建 Prompt  调用 LLM（耗时、可能超时、返回乱码）</li>
+<li>解析结果  执行工具（文件读写、API 调用）</li>
+</ul>
+<p>在传统的命令式编程（Imperative Programming）中，这种流程通常长这样：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 典型的 &quot;Spaghetti Code&quot; Agent</span>
+<span class="k">async</span> <span class="k">def</span> <span class="nf">run_agent</span><span class="p">(</span><span class="n">user_input</span><span class="p">):</span>
+    <span class="c1"># 1. 检索</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="k">await</span> <span class="n">vector_db</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">user_input</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">DbError</span><span class="p">:</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="c1"># 容错逻辑混在主流程里</span>
+
+    <span class="c1"># 2. 构造 Prompt (纯逻辑)</span>
+    <span class="n">prompt</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Context: </span><span class="si">{</span><span class="n">context</span><span class="si">}</span><span class="se">\n</span><span class="s2">Question: </span><span class="si">{</span><span class="n">user_input</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="c1"># 3. LLM 调用</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">llm_client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">:</span> 
+        <span class="k">return</span> <span class="s2">&quot;Error: Empty response&quot;</span> <span class="c1"># 错误检查</span>
+
+    <span class="c1"># 4. 解析与执行</span>
+    <span class="k">if</span> <span class="s2">&quot;&lt;tool&gt;&quot;</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">parse_tool</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">exec_tool</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span> <span class="c1"># 又是 IO</span>
+        <span class="k">return</span> <span class="n">result</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+</code></pre></div>
+
+<p>这段代码的问题在于：<strong>业务逻辑（做什么）与控制流（错误处理、等待、重试）紧密耦合</strong>。如果你想给每一步都加上“Tracing 追踪”或“Retry 重试”，代码体积会爆炸。</p>
+<p><strong>Kleisli Arrow（克莱斯利箭头）</strong> 是函数式编程提供的一把手术刀。它将形式为  的函数（即“输入 ，产生带  上下文的 ”）视为基本的<strong>组合单元</strong>。通过 Kleisli 组合，我们可以像搭积木一样， Agent 的思考、行动、观察串联成一条<strong>线性的、类型安全的、自带错误处理的</strong>管道。</p>
+<p><strong>本章学习目标：</strong></p>
+<ol>
+<li>彻底理解 Kleisli Arrow 的定义  与普通函数的区别。</li>
+<li>掌握核心操作符 <strong>Fish Operator (<code>&gt;=&gt;</code>)</strong> 及其在不同语言中的实现。</li>
+<li>利用 Kleisli Category 重构 Agent：将 Planner、Executor、Memory 变成可组合模块。</li>
+<li><strong>中间件模式</strong>：如何利用 Kleisli 组合在不修改业务代码的前提下，透明地注入 Log、Trace 和 Retry。</li>
+<li>辨析 Kleisli 与 Arrow 的区别：何时我们需要并行能力。</li>
+</ol>
+<hr />
+<h2 id="2">2. 文字论述</h2>
+<h3 id="21-kleisli-arrow">2.1 什么是 Kleisli Arrow？</h3>
+<p>在数学范畴论中，“箭头”（Morphism）通常指纯函数 。我们可以直接组合它们：。
+但在 Agent 工程中，绝大多数函数是<strong>不纯的</strong>（Effectful）。我们称这类函数为 <strong>Kleisli Arrow</strong>。</p>
+<p>定义：一个 <strong>Kleisli Arrow</strong> 是一个具有如下类型签名的函数：</p>
+<p>其中：</p>
+<ul>
+<li>: <strong>输入类型</strong>（Input。</li>
+<li>: <strong>Monad 上下文</strong>（Context/Effect）。在 Agent 中，这通常是 <code>IO</code>、<code>Promise</code>、<code>Future</code>，或者是包含错误处理的 <code>IO[Either[Error, ?]]</code>。</li>
+<li>: <strong>输出值类型</strong>（Result）。</li>
+</ul>
+<p><strong>Agent 组件作为 Kleisli Arrow 的映射：</strong></p>
+<p>| Agent 组件 | 输入 () | Effect () | 输出 () | 函数签名示例 |</p>
+<table>
+<thead>
+<tr>
+<th>Agent 组件</th>
+<th>输入 ()</th>
+<th>Effect ()</th>
+<th>输出 ()</th>
+<th>函数签名示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Retriever</strong></td>
+<td><code>Query</code></td>
+<td><code>IO</code> (网络/DB)</td>
+<td><code>List[Doc]</code></td>
+<td><code>search: Query -&gt; IO [Doc]</code></td>
+</tr>
+<tr>
+<td><strong>LLM Model</strong></td>
+<td><code>Prompt</code></td>
+<td><code>IO</code> (网络/延迟)</td>
+<td><code>String</code></td>
+<td><code>chat: Prompt -&gt; IO String</code></td>
+</tr>
+<tr>
+<td><strong>Parser</strong></td>
+<td><code>String</code></td>
+<td><code>Either Error</code> (解析可能失败)</td>
+<td><code>Action</code></td>
+<td><code>parse: String -&gt; Either Err Action</code></td>
+</tr>
+<tr>
+<td><strong>Tool</strong></td>
+<td><code>Action</code></td>
+<td><code>IO</code> (副作用)</td>
+<td><code>Observation</code></td>
+<td><code>run: Action -&gt; IO Observation</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="22">2.2 组合的几何学：为什么不能直接调用？</h3>
+<p>如果我们有两个 Kleisli Arrow：</p>
+<ol>
+<li>(例如：<code>getUserInput</code>)</li>
+<li>(例如：<code>searchGoogle</code>)</li>
+</ol>
+<p>我们<strong>不能</strong>写 。
+因为  返回的是一个“盒子” <code>IO B</code>，而  需要的是盒子里的裸值” <code>B</code>。即类型不匹配：</p>
+<p>在命令式语言里，我们用 <code>await</code> 或 <code>.then()</code> 强行拆包。但在抽象层面，我们需要一种操作符，能够自动完成“<strong>拆包 -&gt; 传递 -&gt; 封包</strong>”的过程。</p>
+<h3 id="23-the-fish-operator">2.3 The Fish Operator (<code>&gt;=&gt;</code>)</h3>
+<p>这种组合操作符被称为 <strong>Kleisli Composition</strong>，符号通常写作 <code>&gt;=&gt;</code>（形状像一条鱼），也称为“鱼操作符”。</p>
+<p>定义如下（以 Haskell 风格为例）：</p>
+<p>它的执行逻辑是：</p>
+<ol>
+<li>拿到输入 ，传给 。</li>
+<li>运行，产生 （比如一个 Promise）。</li>
+<li>利用 Monad 的 <code>bind</code> () 能力，等待  完成并取出 。</li>
+<li>将  传给 。</li>
+<li>运行，产生 。</li>
+<li>返回这个 。</li>
+</ol>
+<h4 id="ascii-kleisli-pipeline">ASCII 流程图：Kleisli Pipeline</h4>
+<div class="codehilite"><pre><span></span><code>Pipeline: agent = step1 &gt;=&gt; step2 &gt;=&gt; step3
+
+      [ Input A ]
+          |
+          v
+    +-----------+
+    |  Step 1   | f: A -&gt; m B
+    +-----------+
+          | outputs (m B)
+          v
+    [ Bind/FlatMap Magic ] &lt;--- 自动拆包，如果是 Error 则跳过后续
+          | passes (B)
+          v
+    +-----------+
+    |  Step 2   | g: B -&gt; m C
+    +-----------+
+          | outputs (m C)
+          v
+    [ Bind/FlatMap Magic ]
+          | passes (C)
+          v
+    +-----------+
+    |  Step 3   | h: C -&gt; m D
+    +-----------+
+          |
+          v
+      [ Output m D ]
+</code></pre></div>
+
+<h3 id="24-agent-pipeline">2.4 工程实战：重构 Agent Pipeline</h3>
+<p>假设我们有以下三个原子能力（Atomic Capabilities）：</p>
+<ol>
+<li>
+<p><code>promptTemplate</code>: 将用户问题转换为 Prompt。这是一个纯函数，但为了组合，我们可以用 <code>pure</code> 提升它，或者使用 <code>map</code>。
+* 类型：<code>String -&gt; Prompt</code></p>
+</li>
+<li>
+<p><code>llmInference</code>: 调用模型。
+* 类型：<code>Prompt -&gt; IO String</code></p>
+</li>
+<li>
+<p><code>extractTool</code>: 解析 JSON。
+* 类型：<code>String -&gt; IO ToolCall</code> (假设解析失败抛出 IO 错误)</p>
+</li>
+</ol>
+<p><strong>使用 Kleisli 组合的代码（伪代码）：</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- 定义 pipeline</span>
+<span class="nf">thinkingProcess</span><span class="w"> </span><span class="ow">::</span><span class="w"> </span><span class="kt">String</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">IO</span><span class="w"> </span><span class="kt">ToolCall</span>
+<span class="nf">thinkingProcess</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span>
+<span class="w">    </span><span class="p">(</span><span class="n">pure</span><span class="w"> </span><span class="o">.</span><span class="w"> </span><span class="n">promptTemplate</span><span class="p">)</span><span class="w">  </span><span class="c1">-- 1. 纯函数提升为 Kleisli</span>
+<span class="w">    </span><span class="o">&gt;=&gt;</span><span class="w"> </span><span class="n">llmInference</span><span class="w">         </span><span class="c1">-- 2. IO 操作</span>
+<span class="w">    </span><span class="o">&gt;=&gt;</span><span class="w"> </span><span class="n">extractTool</span><span class="w">          </span><span class="c1">-- 3. IO 操作 (含解析逻辑)</span>
+
+<span class="c1">-- 运行</span>
+<span class="nf">result</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="n">thinkingProcess</span><span class="p">(</span><span class="s">&quot;帮我查一下天气&quot;</span><span class="p">)</span><span class="w"> </span>
+<span class="c1">-- result 是 IO ToolCall</span>
+</code></pre></div>
+
+<p><strong>这一行的价值在于：</strong> 我们定义了<strong>控制流的形状</strong>，而没有执行它。这让我们可以对 <code>thinkingProcess</code> 进行整体的测试、超时控制或修饰，而不需要深入到函数内部。</p>
+<h3 id="25-middleware">2.5 强大的中间件能力 (Middleware)</h3>
+<p>Kleisli Arrow 最迷人的地方在于它非常适合做 <strong>AOP (面向切面编程)</strong>。我们可以编写高阶函数来“修饰”任何一个 Kleisli Arrow。</p>
+<h4 id="1-retry">场景 1：自动重试 (Retry)</h4>
+<p>定义一个修饰器 <code>withRetry</code>：</p>
+<p>它接收一个箭头，返回一个新的箭头：如果原箭头失败，新箭头会重试 N 次。</p>
+<h4 id="2-tracing">场景 2：链路追踪 (Tracing)</h4>
+<p>定义 <code>withTrace(name)</code>：
+它会在执行前后记录开始和结束时间，并向分布式追踪系统发送 Span。</p>
+<h4 id="agent">组合后的 Agent：</h4>
+<div class="codehilite"><pre><span></span><code>robustAgent = 
+   (pure . template)
+   &gt;=&gt; withTrace(&quot;LLM_Call&quot;, withRetry(3, llmInference))  // 带追踪和重试的 LLM
+   &gt;=&gt; withTrace(&quot;Parser&quot;, extractTool)                   // 带追踪的解析
+</code></pre></div>
+
+<p>这种<strong>声明式</strong>的写法，让“功能需求”（业务逻辑）和“非功能需求”（稳定性、观测性）完全解耦。</p>
+<h3 id="26-kleisli-vs">2.6 Kleisli 的局限性：串行 vs 并行</h3>
+<p>Kleisli Arrow 本质上是<strong>串行</strong>的（Sequential）。
+<code>f &gt;=&gt; g</code> 意味着  必须等待  完成才能获得输入。</p>
+<p>如果你需要<strong>并行</strong>（例如：同时调用 3 个不同的 LLM 模型投票），Kleisli Arrow 就不够用了。这时我们需要引入 <strong>Arrow</strong> (更通用的接口) 或 <strong>Applicative Functor</strong> (<code>parMap</code>, <code>parZip</code>)。</p>
+<ul>
+<li><strong>Kleisli</strong>:  (链式依赖)</li>
+<li><strong>Applicative</strong>:  (无依赖并行)</li>
+</ul>
+<p>在第 5 章（Runtime）中，我们会详细讨论如何在 Kleisli 管道的某个节点内部嵌入并行计算。</p>
+<hr />
+<h2 id="3">3. 本章小结</h2>
+<ol>
+<li><strong>Kleisli Arrow</strong> 是类型为  的函数，它是 Agent 系统中“带副作用步骤”的标准抽象。</li>
+<li><strong>Fish Operator (<code>&gt;=&gt;</code>)</strong> 是 Kleisli 的组合工具，它自动处理了 Monad 上下文的解包与传递，消除了回调地狱。</li>
+<li><strong>短路特性</strong>：基于 <code>IO</code> 或 <code>Either</code> Monad 的 Kleisli 组合天生具有短路能力。上一步报错，下一步自动跳过。</li>
+<li><strong>中间件架构</strong>：Kleisli Arrow 极易被装饰。我们可以通过高阶函数无侵入地为 Agent 的任意步骤添加 Retry、Timeout、Tracing 和 Logging。</li>
+<li><strong>设计原则</strong>：将 Agent 拆解为细粒度的 Kleisli Arrow，然后通过组合子（Combinators）将它们拼装成完整的运行时。</li>
+</ol>
+<hr />
+<h2 id="4">4. 练习题</h2>
+<blockquote>
+<p><strong>提示</strong>：除了思考类型签名，尝试用你熟悉的语言（JS/TS/Python）构思其实现逻辑。</p>
+</blockquote>
+<h3 id="50">基础题 (50%)</h3>
+<p><strong>Q1. 类型体操：拼接管道</strong>
+已知：</p>
+<ul>
+<li><code>fetchUser : UserID -&gt; IO UserProfile</code></li>
+<li><code>vectorSearch : UserProfile -&gt; IO [Document]</code></li>
+<li><code>summarize : [Document] -&gt; IO String</code></li>
+</ul>
+<p>请写出将 <code>UserID</code> 转换为 <code>String</code> (Summary) 的 Kleisli 组合表达式。
+<em>(Hint: 只需要关注输入输出类型的首尾相接)</em></p>
+<details>
+<summary>参考答案 (折叠)</summary>
+<p>表达式：
+<code>fetchUser &gt;=&gt; vectorSearch &gt;=&gt; summarize</code></p>
+<p>类型推导过程：</p>
+<ol>
+<li><code>UserID -&gt; IO UserProfile</code></li>
+<li><code>UserProfile -&gt; IO [Document]</code> (输入匹配上一步的输出)</li>
+<li><code>[Document] -&gt; IO String</code> (输入匹配上一步的输出)
+最终得到：<code>UserID -&gt; IO String</code></li>
+</ol>
+</details>
+<hr />
+<p><strong>Q2. 纯函数的介入</strong>
+假设我们有一个纯函数 <code>filterDocs : [Document] -&gt; [Document]</code>，它不过滤网络，只在内存里操作。
+如何将它插入到 Q1 的管道中 <code>vectorSearch</code> 和 <code>summarize</code> 之间？
+<em>(Hint: 纯函数不能直接用 <code>&gt;=&gt;</code>，需要提升)</em></p>
+<details>
+<summary>参考答案 (折叠)</summary>
+<p>纯函数 <code>A -&gt; B</code> 需要提升为 <code>A -&gt; IO B</code> 才能参与 Kleisli 组合。
+方法是使用 <code>pure</code> (或 <code>return</code> / <code>async (x) =&gt; x</code>)。</p>
+<p>表达式：
+<code>fetchUser &gt;=&gt; vectorSearch &gt;=&gt; (pure . filterDocs) &gt;=&gt; summarize</code></p>
+<p>或者利用 Functor 的 <code>map</code> 语义，在组合外部操作：
+<code>fetchUser &gt;=&gt; (vectorSearch.map(filterDocs)) &gt;=&gt; summarize</code> (这种写法取决于具体语言库的实现，第一种更通用)</p>
+</details>
+<hr />
+<p><strong>Q3. TypeScript 实现</strong>
+在 TypeScript 中实现 <code>composeK</code> (即 <code>&gt;=&gt;</code>)。
+类型定义参考：<code>type KFunc&lt;A, B&gt; = (a: A) =&gt; Promise&lt;B&gt;</code>。</p>
+<details>
+<summary>参考答案 (折叠)</summary>
+<div class="codehilite"><pre><span></span><code><span class="c1">// 这是一个泛型的高阶函数</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">composeK</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">A</span><span class="p">,</span><span class="w"> </span><span class="nx">B</span><span class="p">,</span><span class="w"> </span><span class="nx">C</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">    </span><span class="nx">f</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">a</span><span class="o">:</span><span class="w"> </span><span class="kt">A</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="nx">B</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span>
+<span class="w">    </span><span class="nx">g</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">b</span><span class="o">:</span><span class="w"> </span><span class="kt">B</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="nx">C</span><span class="o">&gt;</span>
+<span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// 返回一个新的函数</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">a</span><span class="o">:</span><span class="w"> </span><span class="kt">A</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="nx">C</span><span class="o">&gt;</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">f</span><span class="p">(</span><span class="nx">a</span><span class="p">);</span><span class="w"> </span><span class="c1">// 1. 执行 f 并等待解包</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">g</span><span class="p">(</span><span class="nx">b</span><span class="p">);</span><span class="w">          </span><span class="c1">// 2. 将结果传给 g 并返回</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+
+<span class="c1">// 使用示例</span>
+<span class="c1">// const pipeline = composeK(step1, step2);</span>
+</code></pre></div>
+
+</details>
+<hr />
+<h3 id="50_1">挑战题 (50%)</h3>
+<p><strong>Q4. "Circuit Breaker" (熔断器) 中间件</strong>
+设计一个高阶函数 <code>circuitBreaker</code>，它包装一个 Kleisli Arrow。
+逻辑：如果最近 5 次调用中有 3 次失败，则在接下来的 1 分钟内直返回 Error，不再实际执行被包装的函数。
+问题：实现这个逻辑需要什么额外的“副作用”？这是否破坏了 Kleisli 的纯粹性？
+<em>(Hint: <code>IO</code> Monad 内部可以包含 <code>State</code> 或 <code>Ref</code>)</em></p>
+<details>
+<summary>参考答案 (折叠)</summary>
+<p><strong>所需能力</strong>：需要一个可变的、跨请求持久化的状态（State/Ref），用来记录失败计数和上次失败时间。</p>
+<p><strong>类型签名设计</strong>：
+<code>circuitBreaker : StateRef -&gt; (A -&gt; IO B) -&gt; (A -&gt; IO B)</code></p>
+<p><strong>纯粹性分析</strong>：
+这<strong>没有</strong>破坏纯粹性，前提是“读取/写入状态”这个动作本身被封装在了 <code>IO</code> Effect 中。
+当我们组合出这个 Agent 时，我们只是构建了一个“描述”。只有当 Agent 运行时，这个状态才会被修改。
+在 Haskell/Scala Cats 中，通常使用 <code>Ref[IO, BreakerState]</code> 来实现这种并发安全的内部状态。</p>
+</details>
+<hr />
+<p><strong>Q5. 分支逻辑 (Switching)</strong>
+有时候我们需要根据上一步的结果决定下一步走哪条路（例如：如果意图是 "Search" 走搜索管道，如果是 "Chat" 走闲聊管道）。
+请定义一个函数 <code>branch</code>：
+输入：</p>
+<ol>
+<li><code>check : A -&gt; Boolean</code> (判断条件)</li>
+<li><code>ifTrue : A -&gt; IO B</code> (Kleisli Arrow 1)</li>
+<li><code>ifFalse : A -&gt; IO B</code> (Kleisli Arrow 2)
+输出：
+<code>A -&gt; IO B</code></li>
+</ol>
+<p>请问这个 <code>branch</code> 函数本身是 Kleisli Arrow 吗？它能被组合进管道吗？</p>
+<details>
+<summary>参考答案 (折叠)</summary>
+<p><strong>实现逻辑</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">branch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">check</span><span class="p">,</span><span class="w"> </span><span class="nx">ifTrue</span><span class="p">,</span><span class="w"> </span><span class="nx">ifFalse</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">(</span><span class="nx">input</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">check</span><span class="p">(</span><span class="nx">input</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="nx">ifTrue</span><span class="p">(</span><span class="nx">input</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="nx">ifFalse</span><span class="p">(</span><span class="nx">input</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>回答</strong>：
+是的，<code>branch</code> 返回的结果依然是一个 <code>A -&gt; IO B</code> 类型的函数。
+因此，它<strong>完美符合</strong> Kleisli Arrow 的定义。
+你可以把它像普通步骤一样组合进管道：
+<code>preprocess &gt;=&gt; branch(isSearch, searchPipe, chatPipe) &gt;=&gt; postprocess</code>
+这就是 Kleisli 的强大之处：<strong>控制流也是管道的一部分</strong>。</p>
+</details>
+<hr />
+<p><strong>Q6. 调试 Kleisli</strong>
+在一个长长的 <code>f &gt;=&gt; g &gt;=&gt; h &gt;=&gt; ...</code> 链条中，如果中间某一步数据不对，如何调试？
+能不能写一个 <code>tap</code> 函数，允许我们在管道中间 <code>console.log</code> 数据，但不改变数据流向？</p>
+<details>
+<summary>参考答案 (折叠)</summary>
+<p>可以。这个模式通常叫 <code>tap</code> 或 <code>inspect</code>。</p>
+<p><strong>定义</strong>：
+<code>tap : (A -&gt; IO Unit) -&gt; (A -&gt; IO A)</code>
+或者更简单版本（只打印）：
+<code>logResult : String -&gt; (A -&gt; IO A)</code></p>
+<p><strong>实现 (TS)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">inspect</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">A</span><span class="o">&gt;</span><span class="p">(</span><span class="nx">tag</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">x</span><span class="o">:</span><span class="w"> </span><span class="kt">A</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="nx">A</span><span class="o">&gt;</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="sb">`[</span><span class="si">${</span><span class="nx">tag</span><span class="si">}</span><span class="sb">]`</span><span class="p">,</span><span class="w"> </span><span class="nx">x</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">x</span><span class="p">;</span><span class="w"> </span><span class="c1">// 原样返回，保持管道流动</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<p><strong>使用</strong>:
+<code>step1 &gt;=&gt; inspect("After Step1") &gt;=&gt; step2</code>
+这让调试变得像在管道上打孔一样简单。</p>
+</details>
+<hr />
+<h2 id="5-gotchas">5. 常见陷阱与错误 (Gotchas)</h2>
+<h3 id="1">1. 隐式状态丢失</h3>
+<ul>
+<li><strong>现象</strong>：在管道的一开始获取了 <code>UserID</code>，但在执行了 3 步之后，第 4 步又需要 <code>UserID</code>。</li>
+<li><strong>错误</strong>：因为 Kleisli 是 <code>A -&gt; m B</code>, <code>B -&gt; m C</code>，中间的信息如果没有显式传递，就会丢失。</li>
+<li><strong>解决</strong>：</li>
+<li><strong>Payload 传递</strong>：让每一步返回 <code>(Result, Context)</code> 元组。</li>
+<li><strong>Reader Monad</strong>：将 Monad 栈升级为 <code>ReaderT Context IO</code>，这样任何步骤都可以随时 <code>ask</code> 获取环境信息。</li>
+</ul>
+<h3 id="2-error-error">2. 这里的 <code>Error</code> 到底是谁的 <code>Error</code>？</h3>
+<ul>
+<li><strong>现象</strong>：LLM 返回了 <code>"I don't know"</code>（业务层面的失败），但 IO Monad 认为这是成功的（网络请求成功了）。</li>
+<li><strong>陷阱</strong>：直接用 <code>IO</code> 的错误机制处理业务逻辑错误。</li>
+<li><strong>最佳实践</strong>：</li>
+<li><strong>IO Error</strong> (Exception)：保留给网络断连、超时、API 500 等基础设施错误。</li>
+<li><strong>Domain Error</strong> (Either)：LLM 拒绝回答、工具参数解析错误等，应该作为<strong>返回值</strong>的一部分（<code>IO (Either Refusal Answer)</code>），而不是抛出异常。</li>
+</ul>
+<h3 id="3-promise-hell">3. "Promise Hell" 的变体</h3>
+<ul>
+<li><strong>现象</strong>：虽然用了 Kleisli 概念，但实现时还是手动写 <code>step1().then(res =&gt; step2(res))</code>。</li>
+<li><strong>建议</strong>：一定要封装通用的 <code>compose</code> 或 <code>pipe</code> 函数。如果语言支持（如 F# <code>&gt;=&gt;</code>, Haskell <code>&gt;=&gt;</code>, Scala Cats <code>andThen</code>），请直接使用库函数。在 TS/JS 中，使用 <code>fp-ts</code> 或简单的 utility function 来保持代码的平铺。</li>
+</ul>
+<h3 id="4-pure">4. 忽略了 <code>pure</code> 的开销</h3>
+<ul>
+<li><strong>现象</strong>：把大量的纯计算逻辑（如复杂的字符串正则匹配）强行拆成微小的 Kleisli Arrow。</li>
+<li><strong>权衡</strong>：虽然组合性好了，但每次 <code>pure</code> 提升并在 Monad 中 bind 都会带来微小的运行时开销（Event Loop tick）。对于极度密集的 CPU 计算，直接写成纯函数块，只在最后提升一次即可。</li>
+</ul>
+            </article>
+            
+            <nav class="page-nav"><a href="chapter2.html" class="nav-link prev">← Chapter 2 — IO Monad 速成：从概念到工程实现</a><a href="chapter4.html" class="nav-link next">Chapter 4 — Agent DSL：把工具、记忆与控制流做成“可解释的 effect” →</a></nav>
+        </main>
+    </div>
+</body>
+</html>

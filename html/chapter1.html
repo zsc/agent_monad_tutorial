@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>Chapter 1 — LLM Agent 的“抽象边界”：为什么从 IO Monad 出发</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <ul class="nav-list"><li class=""><a href="index.html">《用 IO Monad 搭建 LLM Agent：从 Kleisli 到事件建模与 FRP》目录（index.md）</a></li><li class="active"><a href="chapter1.html">Chapter 1 — LLM Agent 的“抽象边界”：为什么从 IO Monad 出发</a></li><li class=""><a href="chapter2.html">Chapter 2 — IO Monad 速成：从概念到工程实现</a></li><li class=""><a href="chapter3.html">Chapter 3 — Kleisli Arrow：把“带 IO 的函数”当作可组合箭头</a></li><li class=""><a href="chapter4.html">Chapter 4 — Agent DSL：把工具、记忆与控制流做成“可解释的 effect”</a></li><li class=""><a href="CLAUDE.html">Untitled</a></li></ul>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <h1 id="chapter-1-llm-agent-io-monad">Chapter 1 — LLM Agent 的“抽象边界”：为什么从 IO Monad 出发</h1>
+<h2 id="11">1.1 开篇段落：从脚本小子到系统架构师</h2>
+<p>构建一个 Demo 级别的 LLM Agent 是容易的：几行 Python 代码，一个 <code>while</code> 循环，调用一下 OpenAI 的 API，再加几个 <code>if-else</code> 来处理工具调用。在 Hackathon 上，这能跑通。但在生产环境中，这种“脚本式”的 Agent 很快就会演变成维护者的噩梦。</p>
+<p>当我们试图给这个简单的脚本增加生产级特性时，问题接踵而至：</p>
+<ul>
+<li><strong>如何做 A/B 测试？</strong> 你想测试两种不同的 Prompt 策略，但逻辑和网络调用紧紧耦合在一起。</li>
+<li><strong>如何防止死循环？</strong> Agent 在“打开文件”和“读取文件”之无限循环，你如何在<strong>不修改业务逻辑</strong>的情况下，在外部检测并强行熔断？</li>
+<li><strong>如何回放 Debug？</strong> 线上出错了，但由于 LLM 的随机性和实时搜索结果的变化，你根本无法在本地复现那个 Bug。</li>
+</ul>
+<p>本章的目标是打破“Agent 就是一堆 Python 脚本”的固有认知。我们将建立一个新的心智模型：<strong>Agent 是一个产生副作用（Effect）的计算过程</strong>。我们将引入函数式编程（FP）中的核心武器——<strong>IO Monad</strong>，用它来划定“纯逻辑”与“脏世界”的绝对边界。</p>
+<p>这不仅是代码风格的重构，更是对 Agent <strong>时空观</strong>的重塑：将“现在执行”转变为“描述执行”。</p>
+<hr />
+<h2 id="12">1.2 痛苦之源：隐式依赖与急切执行</h2>
+<p>要理解解药，首先要解剖毒药。让我们看看传统的、非 FP 风格的 Agent 代码为何难以维护。</p>
+<h3 id="121-agent">1.2.1 典型的“意大利面条” Agent</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># ❌ 反面教材：典型的过程式 Agent</span>
+<span class="kn">import</span> <span class="nn">openai</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="k">def</span> <span class="nf">run_coding_agent</span><span class="p">(</span><span class="n">task_description</span><span class="p">):</span>
+    <span class="c1"># 1. 隐式副作用：依赖全局配置和网络</span>
+    <span class="n">context</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">load_history</span><span class="p">()</span> 
+
+    <span class="c1"># 2. 隐式输入：不可控的随机性 (Temperature)</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="n">openai</span><span class="o">.</span><span class="n">ChatCompletion</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
+
+    <span class="c1"># 3. 混合逻辑与执行</span>
+    <span class="k">if</span> <span class="s2">&quot;READ_FILE&quot;</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+        <span class="c1"># 4. 无法回滚的副作用：文件系统操作</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+        <span class="c1"># 5. 隐式输出：日志作为副作用散落在各处</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;DEBUG: Read file </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># 6. 递归调用自身，栈难以追踪</span>
+        <span class="k">return</span> <span class="n">run_coding_agent</span><span class="p">(</span><span class="n">new_context</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="122">1.2.2 核心缺陷分析</h3>
+<p>这段代码触犯了可维护性的三大禁忌：</p>
+<ol>
+<li><strong>急切执行 (Eager Execution)</strong>：
+代码被定义的那一刻，它就和“执行”绑定了。当你调用 <code>run_coding_agent</code> 时，网络请求立即发出，文件立即被读取。</li>
+</ol>
+<ul>
+<li><em>后果</em>：你无法在“不花钱调用 API”的情况下测试逻辑分支你无法在“不真的删除文件”的情况下测试文件删除工具。</li>
+</ul>
+<ol start="2">
+<li><strong>指称不透明 (Referential Opacity)</strong>：
+函数 <code>run_coding_agent</code> 的返回值取决于外部状态（数据库、OpenAI 的心情、文件系统）。同样的输入参数 <code>task_description</code>，在周一和周二调用的结果截然不同。</li>
+</ol>
+<ul>
+<li><em>后果</em>：<strong>不可复现</strong>。Debug 变成了玄学。</li>
+</ul>
+<ol start="3">
+<li><strong>控制流硬编码</strong>：
+重试逻辑、超时控制、Trace 追踪通常通过装饰器或硬编码塞入。</li>
+</ol>
+<ul>
+<li><em>后果</em>：如果我想给 Agent 加一个全局的“Token 预算控制”，我必须深入修改函数内部逻辑，甚至要穿透递归调用传递 <code>budget</code> 参数。</li>
+</ul>
+<hr />
+<h2 id="13-io-monad">1.3 解药：IO Monad 的直觉</h2>
+<h3 id="131-io">1.3.1 什么是 IO？</h3>
+<p>在函数式编程中，解决上述问题的思路非常激进：<strong>我们不直接做这些事，我们只生成一份“待办清单”</strong>。</p>
+<p><strong>IO Monad</strong> 就是这个“待办清单”的容器。</p>
+<p>这意味着，当你的 Agent 运行时，它<strong>没有</strong>发网络求，<strong>没有</strong>读写数据库。它只是返回了一个复杂的数据结构（我们可以想象成一棵抽象语法树 AST），这个数据结构详细描述了它<strong>想要</strong>做什么：</p>
+<blockquote>
+<p>“首先，请帮我用参数 X 调用 LLM；如果结果包含 Y，则请帮我读取文件 Z……”</p>
+</blockquote>
+<h3 id="132">1.3.2 “描述”与“解释”的分离</h3>
+<p>通过引入 IO，我们将系统切分为两个完全隔离的世界：</p>
+<p>| 领域 | 职责 | 特性 | 对应代码 |</p>
+<table>
+<thead>
+<tr>
+<th>领域</th>
+<th>职责</th>
+<th>特性</th>
+<th>对应代码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Pure Core (纯核)</strong></td>
+<td>思考、规划、决策</td>
+<td>确定性、无副作用、易测试</td>
+<td>Agent 业务逻辑</td>
+</tr>
+<tr>
+<td><strong>Imperative Shell (脏壳)</strong></td>
+<td>执行网络请求、读写文件、计时</td>
+<td>不确定性、有副作用</td>
+<td>Interpreter / Runtime</td>
+</tr>
+</tbody>
+</table>
+<div class="codehilite"><pre><span></span><code>       [ Pure World ]                      [ Impure World ]
+       (The Blueprint)                     (The Construction Site)
+
+    +-------------------+                 +---------------------+
+    |                   |    compile      |                     |
+    |   Agent Logic     | --------------&gt; |    Runtime Engine   |
+
+    |   Agent Logic     | --------------&gt; |    Runtime Engine   |
+    |                   |                 |                     |
+
+    +---------+---------+                 +----------+----------+
+              |                                      |
+      Returns | IO Program                           | Executes
+              v                                      v
+    ( Describe: &quot;Call LLM&quot; )              ( Action: POST /v1/chat )
+
+              +                                      +
+    ( Describe: &quot;Read DB&quot;  )              ( Action: SELECT * FROM... )
+</code></pre></div>
+
+<h3 id="133">1.3.3 为什么这解决了问题？</h3>
+<ol>
+<li><strong>可测试性</strong>：因为 Agent 只是返回“描述”，我们可以编写一个测试，检查这个描述是否包含“删除文件”的指令，而不需要真的去删除文件。</li>
+<li><strong>可组合性</strong>：描述是数据。我们可以修改描述。比如，我们拿到 Agent 返回的 <code>IO</code> 对象，给它外面包一层 <code>Timeout</code> 或 <code>Retry</code>，生成一个新的 <code>IO</code> 对象。Agent 内部代码对此一所知，也无需修改。</li>
+<li><strong>可替换性</strong>：解释器是可以替换的。
+* <strong>生产环境</strong>：使用 <code>RealInterpreter</code>（真调 API）。
+* <strong>测试环境</strong>：使用 <code>MockInterpreter</code>（返回假数据）。
+* <strong>回放环境</strong>：使用 <code>ReplayInterpreter</code>（读取上次崩溃时的日志作为输入）。</li>
+</ol>
+<hr />
+<h2 id="14-agent">1.4 Agent 开发中的“副作用”全景图</h2>
+<p>在 LLM Agent 语境下，哪些东西应该被扔进 <code>IO</code> 容器？比你想象的要多。</p>
+<h3 id="141-explicit-effects">1.4.1 显性副作用 (Explicit Effects)</h3>
+<ul>
+<li><strong>LLM 推理</strong> (<code>Req -&gt; IO Resp</code>)：这是最大的 IO，耗时长、费钱、易失败。</li>
+<li><strong>Tool Execution</strong> (<code>Cmd -&gt; IO Result</code>)：搜索、计算器、代码执行器。</li>
+<li><strong>Memory Access</strong> (<code>Query -&gt; IO Docs</code>)：向量数据库的增删改查。</li>
+</ul>
+<h3 id="142-implicit-effects">1.4.2 隐性副作用 (Implicit Effects)</h3>
+<p>这些经常被忽略，导致 Agent 变得不可测试：</p>
+<ul>
+<li><strong>获取时间</strong> (<code>IO Time</code>)：如果 Agent 逻辑依赖“当前时间”，那么测试用例在不同时间跑结果就不同。必须将 <code>Now()</code> 视为 IO。</li>
+<li><strong>生成随机数</strong> (<code>IO Random</code>)：LLM 的 Temperature &gt; 0 本质上是随机源。Agent 内部若使用 <code>random.choice</code> 选工具，也必须封装进 IO。</li>
+<li><strong>生成 UUID</strong> (<code>IO UUID</code>)：生成 Request ID 或 Trace ID。</li>
+</ul>
+<h3 id="143-io">1.4.3 为什么“只读”也是 IO？</h3>
+<p>有人问：“读数据库没有改变世界状态，为什么是 IO？”
+因为<strong>世界状态改变了你</strong>。
+数据库的内容可能会被别人修改。为了保证<strong>引用透明性</strong>（同样的输入必须产生同样的输出），任何依赖外部可变状态的操作，都必须标记为 <code>IO</code>。</p>
+<hr />
+<h2 id="15">1.5 抽象的收益清单</h2>
+<p>采用 IO Monad 架构，我们能立即解锁以下高级能力：</p>
+<ol>
+<li>
+<p><strong>Time Travel (时间旅行)</strong>：
+由于所有的外部交互都被抽象为 <code>IO</code>，我们可以录制一次运行的所有 IO 结果。下次运行时，直接用录制的结果作为输入。这就是<strong>确定性回放 (Deterministic Replay)</strong>，是调试复杂 Agent（如 Devin 类产品）的基石。</p>
+</li>
+<li>
+<p><strong>Sandbox Control (沙箱控制)</strong>：
+解释器掌控一切。如果 Agent 试图访问 <code>/etc/passwd</code>，解释器可以在执行层面直接拦截，而不是依赖 Agent 自己写 <code>if</code> 判断。安全策略被从业务逻辑中解耦出来。</p>
+</li>
+<li>
+<p><strong>Cost Awareness (成本感知)</strong>：
+每个 IO 操作都可以携带元数据。解释器可以实时计算 Token 消耗，并在预算耗尽时通过抛出特定的 Effect 来中断 Agent，而不需要 Agent 每一行代码都去检查 <code>if budget &lt; 0</code>。</p>
+</li>
+</ol>
+<hr />
+<h2 id="16-agent-input-io-output">1.6 最小 Agent 模型：Input -&gt; IO Output</h2>
+<p>在本书后续章节中，我们将反复打磨这个公式。现在，让我们确立 Agent 的最简数学形式。</p>
+<p>我们不再写类（Class），我们写函数。
+一个最基础的 ReAct Agent 可以被建模为：</p>
+<ul>
+<li><strong>输入</strong>：对话历史 + 上一步工具的观察结果。</li>
+<li><strong>输出</strong>：一个 IO 描述。这个描述执行后，要么产生下一个动作（调用工具），要么产生最终答案。</li>
+</ul>
+<p>整个 Agent 的运行循环（Runtime Loop），本质上就是递归地解释这个 <code>IO</code>，直到产生 <code>Answer</code>。</p>
+<hr />
+<h2 id="17">1.7 本章小结</h2>
+<ul>
+<li><strong>思维转变</strong>：从“我在写脚本控制 LLM”转变为“我在构建一个描述 Agent 行为的抽象语法树”。</li>
+<li><strong>IO Monad</strong>：它是隔离纯逻辑与副作用的防火墙。它把动作（Action）变成了数据（Data）。</li>
+<li><strong>Rule of Thumb</strong>：如果你的函数里有 <code>print</code>、<code>requests.post</code>、<code>time.sleep</code> 或 <code>random.random</code>，它就是不纯的，必须返回 <code>IO</code> 类型。</li>
+<li><strong>架构红利</strong>：一旦付出了抽象的代价（理解 IO Monad），你将免费获得重试、超时、回放、沙箱和并发控制等能力。</li>
+</ul>
+<hr />
+<h2 id="18-exercises">1.8 练习题 (Exercises)</h2>
+<h3 id="fundamentals">基础题 (Fundamentals)</h3>
+<p><strong>Q1. 识别副作用</strong>
+在构建一个 Coding Agent 时，以下哪些操作<strong>必须</strong>被封装在 <code>IO</code> 中？请说明理由。</p>
+<ol>
+<li>解析 LLM 返回的 Markdown 代码块，提取 Python 代码。</li>
+<li>运行提取出的 Python 代码并捕获 stdout。</li>
+<li>将用户的 Prompt 截断到 4000 token 以内。</li>
+<li>从环境变量中读取 <code>OPENAI_API_KEY</code>。</li>
+<li>在内存中维护一个“已尝试过的错误修复方案”列表（List）。</li>
+</ol>
+<details>
+<summary>点击查看答案与解析</summary>
+<p><strong>答案：</strong> 2, 4
+(注：5 取决于实现方式，如果是可变全局变量则是副作用，如果是函数参数传递则不是。但在 IO 语境下，通常作为 State Monad 处理，也属于 Effect 的一种，为了简化，这里主要看外部交互)。</p>
+<p><strong>解析：</strong></p>
+<ol>
+<li><strong>纯计算</strong>：字符串处理是确定性的，无副作用。</li>
+<li><strong>IO</strong>：运行代码极其危险，可能修改文件、联网、死循环，且结果不确定，是典型的 IO。</li>
+<li><strong>纯计算</strong>：字符串截断是确定性的。</li>
+<li><strong>IO</strong>：读取环境变量依赖于操作系统状态，这是一种隐式输入。为了测试方便，应封装为 <code>Reader</code> 或 <code>IO</code>。</li>
+<li><strong>State/Pure</strong>：如果列表通过函数参数传递（不可变数据结构），是纯的。如果是一个全局 <code>global_list</code>，则是副用。</li>
+</ol>
+</details>
+<hr />
+<p><strong>Q2. 伪代码重构</strong>
+将以下 Python 代码逻辑转换为基于 IO 描述的伪代码（无需关注具体语法，关注结构变化）。</p>
+<p><em>原代码：</em></p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">check_status</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span> <span class="c1"># 立即执行</span>
+        <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">)</span>     <span class="c1"># 立即副作用</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+</code></pre></div>
+
+<p><em>请用类似 <code>IO.request(...).map(...)</code> 的链式结构重写。</em></p>
+<details>
+<summary>点击查看答案</summary>
+<p><strong>答案示例：</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// 伪代码</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">checkStatus</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nx">IO</span><span class="o">&lt;</span><span class="kt">boolean</span><span class="o">&gt;</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">IO</span><span class="p">.</span><span class="nx">request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="p">)</span><span class="w">         </span><span class="c1">// 1. 描述请求，不执行</span>
+<span class="w">        </span><span class="p">.</span><span class="nx">map</span><span class="p">(</span><span class="nx">resp</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">resp</span><span class="p">.</span><span class="nx">statusCode</span><span class="p">)</span><span class="w">     </span><span class="c1">// 2. 转换结果</span>
+<span class="w">        </span><span class="p">.</span><span class="nx">flatMap</span><span class="p">(</span><span class="nx">code</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">                </span><span class="c1">// 3. 根据结果决定后续 IO</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">code</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mf">200</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nx">IO</span><span class="p">.</span><span class="nx">print</span><span class="p">(</span><span class="s2">&quot;Success&quot;</span><span class="p">).</span><span class="nx">map</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="kc">true</span><span class="p">);</span>
+<span class="w">            </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">return</span><span class="w"> </span><span class="nx">IO</span><span class="p">.</span><span class="nx">pure</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">})</span>
+<span class="w">        </span><span class="p">.</span><span class="nx">handleError</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="kc">false</span><span class="p">);</span><span class="w">        </span><span class="c1">// 4. 描述错误处理</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>关键点</strong>：<code>requests.get</code> 变成了 <code>IO.request</code>；<code>print</code> 变成了 <code>IO.print</code>；异常处理变成了 <code>.handleError</code>。</p>
+</details>
+<hr />
+<h3 id="challenges">挑战题 (Challenges)</h3>
+<p><strong>Q3. 随机性与可测试性</strong>
+你正在为一个金融分析 Agent 编写测试。该 Agent 有一个步骤是“随机选择 3 篇新闻进行分析”。
+如果直接使用 <code>random.sample(news, 3)</code>，测试将变得不可复现。
+请利用本章知识，设计一个方案，使得该 Agent 在生产环境中是随机的，但在测试环境中每次选择的新闻是固定的。</p>
+<details>
+<summary>点击查看提示</summary>
+<p><strong>Hint</strong>: 随机数生成器本身可以被视为一种“外部服务”或“能力”。不要在 Agent 内部直接导入 <code>random</code> 库。</p>
+</details>
+<details>
+<summary>点击查看答案</summary>
+<p><strong>答案思路：</strong></p>
+<ol>
+<li><strong>定义能力</strong>：定义一个 <code>Random</code> 接口/Effect，含方法 <code>sample(list, k) -&gt; IO List</code>。</li>
+<li><strong>生产解释器</strong>：在生产环境中，该接口的实现底层调用 Python 的 <code>random.sample</code>。</li>
+<li><strong>测试解释器</strong>：在测试环境中，该接口的实现使用一个固定的种子（Seed）或者直接返回硬编码的索引（例如总是取前三个）。</li>
+<li><strong>注入</strong>：Agent 逻辑不直接依赖 <code>import random</code>，而是依赖这个 <code>Random</code> 能力（通过参数传递或 Reader Monad）。</li>
+</ol>
+</details>
+<hr />
+<p><strong>Q4. IO 的“传染性”</strong>
+如果函数 <code>inner()</code> 返回 <code>IO String</code>，那么调用它的函数 <code>outer()</code> 必须变成什么类型？这在工程上意味着什么？这种特性是好是坏？</p>
+<details>
+<summary>点击查看答案</summary>
+<p><strong>答案：</strong></p>
+<ul>
+<li><strong>类型变化</strong>：<code>outer()</code> 也必须返回 <code>IO ...</code> 类型（例如 <code>IO String</code> 或 <code>IO Unit</code>）。因为要获取 <code>inner</code> 的结果，必须对其进行 <code>map/flatMap</code>，这会生成新的 <code>IO</code> 结构。</li>
+<li><strong>工程意义</strong>：这就是所谓的“IO 传染性”（Color of function problem）。一旦底层逻辑变脏（有了副作用），所有依赖它的上层逻辑也必须标记为“脏”。</li>
+<li><strong>好坏评价</strong>：</li>
+<li><strong>好</strong>：它强迫开发者显式地意识到副作用的传播边界，防止副作用在不知情的情况下泄露到纯逻辑中。</li>
+<li><strong>坏</strong>：重构成本高，需要修改整条调用链的类型签名。但对于高可靠性的 Agent 系统，这是值得付出的代价。</li>
+</ul>
+</details>
+<hr />
+<h2 id="19-gotchas">1.9 常见陷阱与错误 (Gotchas)</h2>
+<h3 id="1-io-fake-io-the-lazy-lie">1. 假 IO (Fake IO / The "Lazy" Lie)</h3>
+<p><strong>错误</strong>：把 IO 当作一个简单的 Wrapper，但实际上里面的代码还是立即执行了。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># ❌ 错误：这没有延迟执行！</span>
+<span class="k">def</span> <span class="nf">get_weather</span><span class="p">(</span><span class="n">city</span><span class="p">):</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;api/</span><span class="si">{</span><span class="n">city</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># 请求在这里就发生了！</span>
+    <span class="k">return</span> <span class="n">IO</span><span class="o">.</span><span class="n">pure</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>                <span class="c1"># 这只是把结果装箱了</span>
+</code></pre></div>
+
+<p><strong>正确</strong>：必须传入一个<strong>函数（Thunk）</strong>给 IO 构造器。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># ✅ 正确</span>
+<span class="k">def</span> <span class="nf">get_weather</span><span class="p">(</span><span class="n">city</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">IO</span><span class="o">.</span><span class="n">delay</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;api/</span><span class="si">{</span><span class="n">city</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+</code></pre></div>
+
+<h3 id="2-io-pure">2. 在 IO 内部做 Pure 运算</h3>
+<p><strong>错误</strong>：把核心的 Prompt 拼接逻辑也写在 <code>IO.map</code> 里。虽然没错，但让这部分逻辑变得难测（必须 Mock IO 才能测）。
+<strong>建议</strong>：尽量让 Pure Logic 独立于 IO。</p>
+<ul>
+<li><em>Bad</em>: <code>IO.map(resp =&gt; complex_parsing(resp))</code></li>
+<li><em>Good</em>: <code>val result = complex_parsing(pure_input); return IO.pure(result)</code> (如果不需要 IO)</li>
+<li><em>Rule</em>: <strong>把 Pure 代码推到 IO 的边缘</strong>。</li>
+</ul>
+<h3 id="3-await-unsaferun">3. 忘记 <code>await</code> / <code>unsafeRun</code></h3>
+<p><strong>现象</strong>：程序跑完了，没有任何报错，但也没有任何反应。
+<strong>原因</strong>：你构建了宏伟的 IO 城堡（Description），但忘记在 <code>main</code> 函数的最后调用解释器去执行它。在 JS/Python 中表现为创建了 Promise/Coroutine 但没有 <code>await</code>。</p>
+            </article>
+            
+            <nav class="page-nav"><a href="index.html" class="nav-link prev">← 《用 IO Monad 搭建 LLM Agent：从 Kleisli 到事件建模与 FRP》目录（index.md）</a><a href="chapter2.html" class="nav-link next">Chapter 2 — IO Monad 速成：从概念到工程实现 →</a></nav>
+        </main>
+    </div>
+</body>
+</html>

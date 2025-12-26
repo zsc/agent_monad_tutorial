@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="./">
+    <title>Untitled</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/highlight.css">
+    <script src="assets/script.js" defer></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
+                processEscapes: false,
+                packages: {'[+]': ['noerrors', 'ams']}
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            },
+            loader: {
+                load: ['[tex]/noerrors', '[tex]/ams']
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>目录</h3>
+                <button id="sidebar-toggle" class="sidebar-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="sidebar-search-input" placeholder="搜索..." autocomplete="off">
+            </div>
+            <div id="tree-container">
+                <ul class="nav-list"><li class=""><a href="index.html">《用 IO Monad 搭建 LLM Agent：从 Kleisli 到事件建模与 FRP》目录（index.md）</a></li><li class=""><a href="chapter1.html">Chapter 1 — LLM Agent 的“抽象边界”：为什么从 IO Monad 出发</a></li><li class=""><a href="chapter2.html">Chapter 2 — IO Monad 速成：从概念到工程实现</a></li><li class=""><a href="chapter3.html">Chapter 3 — Kleisli Arrow：把“带 IO 的函数”当作可组合箭头</a></li><li class=""><a href="chapter4.html">Chapter 4 — Agent DSL：把工具、记忆与控制流做成“可解释的 effect”</a></li><li class="active"><a href="CLAUDE.html">Untitled</a></li></ul>
+            </div>
+        </nav>
+        
+        <main class="content">
+            <article>
+                <p>（交流可以用英文，所有文档中文）</p>
+<h2 id="_1">项目目标</h2>
+<p>LLM agent 的抽象，如果以 IO Monad 为基础来搭，怎么搞好？kleisli arrow 又是什么？如何实现 coding agent 里的 loop detection, A B test，建模 IO timeout 等事件（再举一些）？和 Functional Reactive Programming 关系是什么？
+编写一份基于以上主题的中文教程markdown。
+要包含大量的习题和参考答案（答案默认折叠）。</p>
+<p>文件组织是 index.md + chapter1.md + ...
+不写代码。
+提供 rule-of-thumb。</p>
+<h2 id="_2">章节结构要求</h2>
+<p>每个章节应包含：</p>
+<ol>
+<li><strong>开篇段落</strong>：简要介绍本章内容和学习目标</li>
+<li><strong>文字论述</strong>：以文字论述为主，适当配上ASCII 图说明。</li>
+<li><strong>本章小结</strong>：总结关键概念和公式</li>
+<li><strong>练习题</strong>：
+   - 每章包含6-8道练习题
+   - 50%基础题（帮助熟悉材料）
+   - 50%挑战题（包括开放性思考题）
+   - 每题提供提示（Hint）
+   - 答案默认折叠，不包含代码</li>
+<li><strong>常见陷阱与错误</strong> (Gotchas)：每章包含该主题的常见错误和调试技巧</li>
+</ol>
+            </article>
+            
+            <nav class="page-nav"><a href="chapter4.html" class="nav-link prev">← Chapter 4 — Agent DSL：把工具、记忆与控制流做成“可解释的 effect”</a></nav>
+        </main>
+    </div>
+</body>
+</html>
