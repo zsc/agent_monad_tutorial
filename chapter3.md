@@ -39,7 +39,7 @@ async def run_agent(user_input):
 
 这段代码的问题在于：**业务逻辑（做什么）与控制流（错误处理、等待、重试）紧密耦合**。如果你想给每一步都加上“Tracing 追踪”或“Retry 重试”，代码体积会爆炸。
 
-**Kleisli Arrow（克莱斯利箭头）** 是函数式编程提供的一把手术刀。它将形式为  的函数（即“输入 ，产生带  上下文的 ”）视为基本的**组合单元**。通过 Kleisli 组合，我们可以像搭积木一样， Agent 的思考、行动、观察串联成一条**线性的、类型安全的、自带错误处理的**管道。
+**Kleisli Arrow（克莱斯利箭头）** 是函数式编程提供的一把手术刀。它将形式为 `a -> m b`  的函数（即“输入 a，产生带 m 上下文的 m b”）视为基本的**组合单元**。通过 Kleisli 组合，我们可以像搭积木一样， Agent 的思考、行动、观察串联成一条**线性的、类型安全的、自带错误处理的**管道。
 
 **本章学习目标：**
 
@@ -62,9 +62,9 @@ async def run_agent(user_input):
 
 其中：
 
-* : **输入类型**（Input。
-* : **Monad 上下文**（Context/Effect）。在 Agent 中，这通常是 `IO`、`Promise`、`Future`，或者是包含错误处理的 `IO[Either[Error, ?]]`。
-* : **输出值类型**（Result）。
+* a : **输入类型**（Input。
+* m : **Monad 上下文**（Context/Effect）。在 Agent 中，这通常是 `IO`、`Promise`、`Future`，或者是包含错误处理的 `IO[Either[Error, ?]]`。
+* b : **输出值类型**（Result）。
 
 **Agent 组件作为 Kleisli Arrow 的映射：**
 
